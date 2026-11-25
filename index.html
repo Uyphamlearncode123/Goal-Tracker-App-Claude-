@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Builder Quest">
+<title>Builder Quest</title>
+<style>
+:root{--bg:#0b1220;--card:#111a2e;--card2:#16213a;--line:#22304d;--txt:#e6edf7;--mut:#8b9ab5;--acc:#38bdf8;--ok:#34d399;--warn:#fbbf24;--bad:#f87171}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color-scheme:dark}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card2);border-radius:10px;padding:8px 14px;transition:border-color .15s,transform .1s}
+button:hover{border-color:var(--acc)}button:active{transform:scale(.97)}
+.pri{background:var(--acc);color:#04202e;border-color:var(--acc);font-weight:600}
+.ghost{background:transparent}
+.danger{color:var(--bad);border-color:#4b2230}
+input,textarea,select{width:100%;background:#0d1627;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--acc)}
+input[type=checkbox]{width:18px;height:18px;padding:0;accent-color:var(--acc);flex:none}
+label{display:block;margin-bottom:10px;color:var(--mut);font-size:13px}
+label input,label textarea,label select{margin-top:4px;color:var(--txt);font-size:15px}
+h3{margin:0 0 8px}h4{margin:12px 0 6px}
+.mut{color:var(--mut)}.sm{font-size:13px}.bad{color:var(--bad)}
+code{background:#0d1627;padding:1px 6px;border-radius:6px;color:var(--acc)}
+#app{min-height:100vh}
+main{padding:12px 14px 96px}
+.wrap{max-width:860px;margin:0 auto}
+#nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#0d1526;border-top:1px solid var(--line);z-index:10;padding-bottom:env(safe-area-inset-bottom)}
+#nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:0;border:0;border-radius:0;background:transparent;padding:8px 2px;color:var(--mut)}
+#nav button em{font-style:normal;font-size:10.5px}
+#nav button span{font-size:19px}
+#nav button.on{color:var(--acc);box-shadow:inset 0 2px 0 var(--acc)}
+.brand{display:none;font-weight:700;color:var(--acc);padding:6px 10px 14px;font-size:17px}
+@media(min-width:800px){
+ #nav{top:0;bottom:0;right:auto;width:210px;flex-direction:column;border-top:0;border-right:1px solid var(--line);padding:18px 10px;gap:4px}
+ #nav button{flex:none;flex-direction:row;gap:10px;padding:10px 12px;border-radius:10px;justify-content:flex-start;box-shadow:none!important}
+ #nav button em{font-size:14px}
+ #nav button.on{background:var(--card2)}
+ .brand{display:block}
+ main{margin-left:210px;padding:18px 28px 40px}
+ #toast{bottom:24px!important}
+}
+#top{position:sticky;top:0;z-index:5;background:rgba(11,18,32,.93);backdrop-filter:blur(8px);padding:10px 0 8px;margin-bottom:8px;border-bottom:1px solid var(--line)}
+.tr{display:flex;align-items:center;gap:12px}
+.lv{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:20px;background:radial-gradient(circle at 30% 30%,#0b3b52,#0d1627);border:2px solid var(--acc);flex:none}
+.lv.pop{animation:pop 1s ease}
+@keyframes pop{0%{transform:scale(1)}35%{transform:scale(1.35);box-shadow:0 0 30px var(--acc)}100%{transform:scale(1);box-shadow:none}}
+.tinfo{flex:1;min-width:0}
+.rk{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{height:8px;background:#0d1627;border-radius:99px;overflow:hidden;margin:4px 0;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#0ea5e9,var(--acc),#67e8f9);border-radius:99px;transition:width .6s ease}
+.bar.glow{animation:glow 1s ease}
+@keyframes glow{50%{box-shadow:0 0 16px var(--acc)}}
+.chip{background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:4px 10px;font-weight:700;white-space:nowrap}
+.net{display:inline-flex;align-items:center;gap:7px;font-size:12px;padding:3px 11px;border-radius:99px;margin-top:8px;background:var(--card2)}
+.net i{width:8px;height:8px;border-radius:50%;background:#64748b;flex:none}
+.net.ok i{background:var(--ok)}.net.warn i{background:var(--warn)}.net.err i{background:var(--bad)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.grid{display:grid;gap:12px}
+@media(min-width:700px){.g2{grid-template-columns:1fr 1fr}}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.big{font-size:30px;font-weight:800;color:var(--acc)}
+.tag{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--ok);color:var(--ok)}
+.steps{margin-top:8px}
+.st{display:flex;gap:10px;align-items:center;padding:6px 0;color:var(--txt);font-size:15px;margin:0;border-top:1px solid #172340}
+.st.dn span{color:var(--mut);text-decoration:line-through}
+.wk{display:flex;gap:8px;align-items:flex-end;height:120px;margin-top:8px}
+.wk>div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%}
+.wk b{width:100%;border-radius:6px 6px 2px 2px;background:var(--acc);min-height:3px;opacity:.85}
+.wk .t b{box-shadow:0 0 12px var(--acc);opacity:1}
+.wk small{color:var(--mut);font-size:11px}
+.dots{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.dots button{width:34px;height:34px;padding:0;border-radius:50%}
+.dots .ok{background:#0f3a33;border-color:var(--ok)}
+.dots .cur{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc)}
+.note{background:#0d1627;border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-top:10px}
+.note p{margin:6px 0}.note ul{margin:6px 0;padding-left:20px}.note h4{color:var(--acc)}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.bd{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.bd.lock{opacity:.4;filter:grayscale(1)}
+.bd .e{font-size:28px}
+.rank{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #172340}
+.rank.cur{color:var(--acc);font-weight:700}.rank.lock{opacity:.45}
+.ov{position:fixed;inset:0;background:rgba(2,6,15,.78);display:flex;overflow:auto;padding:14px;z-index:50}
+.dlg{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;width:100%;max-width:640px;margin:auto}
+.srow{display:flex;gap:8px;margin-bottom:10px;align-items:flex-start}
+.srow .sn{width:24px;padding-top:8px;color:var(--mut);text-align:center}
+.srow .sf{flex:1;display:grid;gap:6px}
+.srow .sb{display:flex;flex-direction:column;gap:4px}
+.srow .sb button{padding:2px 9px}
+#toast{position:fixed;left:0;right:0;bottom:84px;z-index:60;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+.t{background:#0d1627;border:1px solid var(--acc);padding:8px 16px;border-radius:99px;animation:up .3s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+@keyframes up{from{opacity:0;transform:translateY(10px)}}
+</style>
+</head>
+<body>
+<div id="app">
+ <nav id="nav">
+  <div class="brand">⚙ Builder Quest</div>
+  <button data-tab="dash"><span>📊</span><em>Dashboard</em></button>
+  <button data-tab="goals"><span>🎯</span><em>Goals</em></button>
+  <button data-tab="guide"><span>🧭</span><em>Guide</em></button>
+  <button data-tab="ach"><span>🏆</span><em>Achievements</em></button>
+  <button data-tab="settings"><span>⚙️</span><em>Settings</em></button>
+ </nav>
+ <main><div class="wrap"><header id="top"></header><section id="view"></section></div></main>
+</div>
+<div id="modal"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ============ PASTE YOUR FIREBASE CONFIG HERE (or paste it in Settings) ============ */
+const FIREBASE_CONFIG = { apiKey:"", authDomain:"", projectId:"", storageBucket:"", messagingSenderId:"", appId:"" };
+/* ================================================================================== */
+
+const LS_KEY="bq_state_v1", LS_BAK="bq_backup_v1", LS_SYNC="bq_synccode_v1", LS_CFG="bq_fbcfg_v1";
+const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+const $=(s,el=document)=>el.querySelector(s);
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3);
+const pad=n=>String(n).padStart(2,"0");
+const dstr=(d=new Date())=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const dayNum=s=>{const [y,m,d]=s.split("-").map(Number);return Math.round(Date.UTC(y,m-1,d)/864e5)};
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const clone=o=>JSON.parse(JSON.stringify(o));
+function canon(v){
+ if(Array.isArray(v))return "["+v.map(canon).join(",")+"]";
+ if(v&&typeof v==="object")return "{"+Object.keys(v).sort().map(k=>JSON.stringify(k)+":"+canon(v[k])).join(",")+"}";
+ return JSON.stringify(v);
+}
+function weekKey(d=new Date()){const x=new Date(d);x.setDate(x.getDate()-((x.getDay()+6)%7));return dstr(x)}
+
+/* ---------- Starter template ---------- */
+function template(fixed){
+ const st=(i,text,note)=>({id:fixed?"ee"+i:uid(),text,note,done:false,doneAt:0,mod:0});
+ return {id:fixed?"starter-ee":uid(),title:"Electrical Engineering Freshman Prep",category:"Engineering",deadline:"",
+  notes:"Four focused milestones to get ready for first-year EE. Aim for **30-45 minutes a day**.",
+  steps:[
+   st(1,"Milestone 1: Refresh algebra and trigonometry","- Review solving linear systems, exponents, and logarithms\n- Memorize the unit circle and the main trig identities\n- Do about 10 practice problems a day until they feel automatic\n- Free resources: Khan Academy, Paul's Online Math Notes"),
+   st(2,"Milestone 2: Learn Calculus I basics","- Understand limits, then derivatives and the chain rule\n- Learn basic integrals and what area under a curve means\n- Link it to circuits: current is the derivative of charge\n- Finish one chapter of practice problems per week"),
+   st(3,"Milestone 3: Master basic circuits","- Learn **Ohm's law** (V = IR) and power (P = VI)\n- Practice Kirchhoff's voltage and current laws\n- Solve series and parallel resistor networks by hand\n- Check your answers in a free simulator such as Falstad or Tinkercad Circuits"),
+   st(4,"Milestone 4: Get hands-on with code and tools","- Write small programs in Python or C (loops, functions, arrays)\n- Blink an LED with an Arduino or similar board\n- Learn the multimeter: voltage, continuity, resistance\n- Keep a project log of what worked and what broke")
+  ],completed:false,awarded:false,createdAt:fixed?0:Date.now(),mod:fixed?0:Date.now()};
+}
+
+/* ---------- State ---------- */
+function defaultState(){return {v:2,epoch:0,goals:[template(true)],deleted:{},xp:0,log:{},streak:{count:0,last:"",freezes:1,week:weekKey()},badges:{},lastCheckin:"",updatedAt:0}}
+function normalize(o){
+ const s=Object.assign(defaultState(),o);
+ s.streak=Object.assign(defaultState().streak,o.streak||{});
+ s.log=o.log||{};s.badges=o.badges||{};s.deleted=o.deleted||{};s.epoch=o.epoch||0;
+ s.goals.forEach(g=>{g.mod=g.mod||0;g.steps=g.steps||[];g.steps.forEach(x=>{x.mod=x.mod||0})});
+ return s;
+}
+function load(){try{const s=JSON.parse(ls.get(LS_KEY));if(s&&Array.isArray(s.goals))return normalize(s)}catch(e){}return defaultState()}
+let S=load();
+let tab="dash",guideGoal=null,guideIdx=0,flash=false,armed=null,draft=null,isNew=false;
+
+/* Every change is written to LocalStorage first, then queued for Firebase. */
+function commit(){
+ checkBadges();
+ S.updatedAt=Date.now();
+ ls.set(LS_KEY,JSON.stringify(S));
+ rollingBackup();queueSync();render();
+}
+function rollingBackup(){
+ try{let b=JSON.parse(ls.get(LS_BAK)||"[]");const now=Date.now();
+  if(!b.length||now-b[0].t>600000){b.unshift({t:now,d:JSON.stringify(S)});ls.set(LS_BAK,JSON.stringify(b.slice(0,5)))}}catch(e){}
+}
+
+/* ---------- Merge (used when Firestore and this device both have data) ---------- */
+function mergeStates(a,b){
+ if(!a.updatedAt)return b;            /* this device is untouched: adopt remote */
+ if(!b.updatedAt)return a;
+ if((a.epoch||0)!==(b.epoch||0))return (a.epoch||0)>(b.epoch||0)?a:b;   /* import/reset wins */
+ const aNew=a.updatedAt>=b.updatedAt,p=aNew?a:b,q=aNew?b:a;
+ const del={};[a.deleted,b.deleted].forEach(o=>Object.keys(o||{}).forEach(k=>{del[k]=Math.max(del[k]||0,o[k])}));
+ const ids=[],seen={};
+ [p,q].forEach(s=>s.goals.forEach(g=>{if(!seen[g.id]){seen[g.id]=1;ids.push(g.id)}}));
+ const goals=[];
+ ids.forEach(id=>{
+  const gp=p.goals.find(g=>g.id===id),gq=q.goals.find(g=>g.id===id);let g;
+  if(gp&&gq){
+   const base=gq.mod>gp.mod?gq:gp,other=base===gp?gq:gp;
+   g=clone(base);
+   g.steps=g.steps.map(s=>{const o=other.steps.find(x=>x.id===s.id);return (o&&o.mod>s.mod)?clone(o):s});
+   g.mod=Math.max(gp.mod,gq.mod);
+   g.awarded=!!(gp.awarded||gq.awarded);
+   g.completed=g.steps.length>0&&g.steps.every(s=>s.done);
+  }else g=clone(gp||gq);
+  if((del[id]||0)>g.mod)return;
+  goals.push(g);
+ });
+ const log={};[a.log,b.log].forEach(o=>Object.keys(o||{}).forEach(k=>{log[k]=Math.max(log[k]||0,o[k])}));
+ const xp=Object.keys(log).reduce((t,k)=>t+log[k],0);
+ const sa=a.streak,sb=b.streak;
+ let st=sb.last>sa.last?sb:sa;if(sa.last===sb.last)st=sb.count>sa.count?sb:sa;
+ st=clone(st);if(sa.week===sb.week)st.freezes=Math.min(sa.freezes,sb.freezes);
+ const badges={};[a.badges,b.badges].forEach(o=>Object.keys(o||{}).forEach(k=>{badges[k]=badges[k]?Math.min(badges[k],o[k]):o[k]}));
+ return normalize({v:2,epoch:a.epoch||0,goals,deleted:del,xp,log,streak:st,badges,
+  lastCheckin:a.lastCheckin>b.lastCheckin?a.lastCheckin:b.lastCheckin,updatedAt:Math.max(a.updatedAt,b.updatedAt)});
+}
+
+/* ---------- XP, levels, ranks, streaks ---------- */
+const need=l=>50*l*(l-1);
+function levelInfo(xp){let l=1;while(xp>=need(l+1))l++;const a=need(l),b=need(l+1);return {l,a,b,pct:Math.max(0,Math.min(100,(xp-a)/(b-a)*100))}}
+const RANKS=[[1,"Novice Tinkerer","🔧"],[3,"Circuit Apprentice","⚡"],[5,"Prototype Builder","🛠️"],[8,"Systems Architect","🏗️"],[12,"Grand Inventor","🚀"]];
+const rankOf=l=>[...RANKS].reverse().find(r=>l>=r[0]);
+function addXP(n){
+ const before=levelInfo(S.xp).l;
+ S.xp=Math.max(0,S.xp+n);
+ const t=dstr();S.log[t]=Math.max(0,(S.log[t]||0)+n);
+ if(n>0)touchStreak();
+ const after=levelInfo(S.xp).l;
+ if(after>before){flash=true;toast("⬆ Level "+after+"!");if(rankOf(after)!==rankOf(before))toast("🎖 New rank: "+rankOf(after)[1])}
+}
+function touchStreak(){
+ const t=dstr(),st=S.streak,wk=weekKey();
+ if(st.week!==wk){st.week=wk;st.freezes=1}
+ if(st.last===t)return;
+ if(!st.last)st.count=1;
+ else{const gap=dayNum(t)-dayNum(st.last);
+  if(gap===1)st.count++;
+  else if(gap===2&&st.freezes>0){st.freezes--;st.count++;toast("🧊 Freeze token used, streak saved")}
+  else st.count=1}
+ st.last=t;
+}
+function freezes(){return S.streak.week===weekKey()?S.streak.freezes:1}
+function streakNow(){
+ const st=S.streak;if(!st.last)return 0;
+ const gap=dayNum(dstr())-dayNum(st.last);
+ if(gap<=1)return st.count;
+ if(gap===2&&freezes()>0)return st.count;
+ return 0;
+}
+function settleGoal(g){
+ const all=g.steps.length>0&&g.steps.every(s=>s.done);
+ g.completed=all;
+ if(all&&!g.awarded){g.awarded=true;addXP(50);toast("🏁 Goal complete! +50 XP")}
+}
+function toggleStep(gid,sid){
+ const g=S.goals.find(x=>x.id===gid);if(!g)return;
+ const s=g.steps.find(x=>x.id===sid);if(!s)return;
+ const now=Date.now();
+ s.done=!s.done;s.mod=now;g.mod=now;
+ if(s.done){s.doneAt=now;addXP(10)}else{s.doneAt=0;addXP(-10)}
+ settleGoal(g);commit();
+}
+
+/* ---------- Badges ---------- */
+const stepsDone=()=>S.goals.reduce((a,g)=>a+g.steps.filter(s=>s.done).length,0);
+const goalsDone=()=>S.goals.filter(g=>g.completed).length;
+const BADGES=[
+ ["first","First Solder","Complete 1 step","🔌",()=>stepsDone()>=1],
+ ["s10","Ten Traces","Complete 10 steps","📟",()=>stepsDone()>=10],
+ ["s50","Fifty Components","Complete 50 steps","🧩",()=>stepsDone()>=50],
+ ["g1","Prototype Shipped","Finish a goal","📦",()=>goalsDone()>=1],
+ ["g3","Production Line","Finish 3 goals","🏭",()=>goalsDone()>=3],
+ ["st3","Warm Circuit","3-day streak","🔥",()=>streakNow()>=3],
+ ["st7","Steady Current","7-day streak","🌊",()=>streakNow()>=7],
+ ["l5","Level 5","Reach level 5","⭐",()=>levelInfo(S.xp).l>=5],
+ ["xp500","Full Charge","Earn 500 XP","🔋",()=>S.xp>=500]
+];
+function checkBadges(){BADGES.forEach(b=>{if(!S.badges[b[0]]&&b[4]()){S.badges[b[0]]=Date.now();toast(b[3]+" Badge: "+b[1])}})}
+
+/* ---------- Helpers ---------- */
+function toast(m){
+ const el=document.createElement("div");el.className="t";el.textContent=m;$("#toast").appendChild(el);
+ setTimeout(()=>el.remove(),3000);
+}
+function md(t){
+ const inl=s=>s.replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>").replace(/(^|[^*])\*([^*]+)\*/g,"$1<i>$2</i>");
+ let out="",list=false;
+ for(const l of esc(t||"").split("\n")){
+  const li=l.match(/^\s*[-*]\s+(.*)/);
+  if(li){if(!list){out+="<ul>";list=true}out+="<li>"+inl(li[1])+"</li>";continue}
+  if(list){out+="</ul>";list=false}
+  const h=l.match(/^#{1,3}\s+(.*)/);
+  if(h)out+="<h4>"+inl(h[1])+"</h4>";else if(l.trim())out+="<p>"+inl(l)+"</p>";
+ }
+ if(list)out+="</ul>";
+ return out;
+}
+function stats(){let t=0,d=0;S.goals.forEach(g=>g.steps.forEach(s=>{t++;if(s.done)d++}));return {t,d,pct:t?Math.round(d/t*100):0}}
+function dueTxt(g){
+ if(!g.deadline)return "";
+ const [y,m,d]=g.deadline.split("-").map(Number);const od=!g.completed&&g.deadline<dstr();
+ return ' · <span class="'+(od?"bad":"")+'">Due '+new Date(y,m-1,d).toLocaleDateString(undefined,{month:"short",day:"numeric"})+(od?" (overdue)":"")+"</span>";
+}
+function firstOpen(g){const i=g.steps.findIndex(s=>!s.done);return i<0?0:i}
+
+/* ---------- Network / sync status ---------- */
+let syncState="idle",syncMsg="";   /* idle | connecting | syncing | synced | error */
+function netInfo(){
+ if(!navigator.onLine)return ["warn","Offline (Saved Locally)"];
+ if(!(ls.get(LS_SYNC)&&getCfg()))return ["warn","Online (Saved Locally)"];
+ if(syncState==="synced")return ["ok","Online (Synced)"];
+ if(syncState==="error")return ["err","Online (Sync error)"];
+ return ["warn","Online (Syncing…)"];
+}
+function statusText(){return netInfo()[1]+(syncState==="error"&&syncMsg&&navigator.onLine?": "+syncMsg:"")}
+function setStatus(s,msg){syncState=s;syncMsg=msg||"";refreshNet()}
+function refreshNet(){renderTop();const el=$("#syncmsg");if(el)el.textContent=statusText()}
+
+/* ---------- Views ---------- */
+function renderTop(){
+ const L=levelInfo(S.xp),R=rankOf(L.l),f=flash,n=netInfo();flash=false;
+ $("#top").innerHTML=
+  '<div class="tr"><div class="lv '+(f?"pop":"")+'">'+L.l+'</div>'+
+  '<div class="tinfo"><div class="rk">'+R[2]+" "+R[1]+'</div><div class="bar '+(f?"glow":"")+'"><i style="width:'+L.pct+'%"></i></div>'+
+  '<small class="mut">'+(S.xp-L.a)+" / "+(L.b-L.a)+" XP to level "+(L.l+1)+" · "+S.xp+" total</small></div>"+
+  '<div class="chip" title="Freeze tokens this week: '+freezes()+'">🔥 '+streakNow()+"</div></div>"+
+  '<button class="net '+n[0]+'" data-tab="settings" title="Open sync settings"><i></i>'+esc(n[1])+"</button>";
+}
+function dash(){
+ const s=stats(),done=S.lastCheckin===dstr();
+ let nx=null;for(const g of S.goals){const i=g.steps.findIndex(x=>!x.done);if(i>=0){nx={g,i};break}}
+ const days=[];
+ for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const k=dstr(d);days.push({xp:S.log[k]||0,l:d.toLocaleDateString(undefined,{weekday:"narrow"}),t:i===0})}
+ const mx=Math.max(20,...days.map(d=>d.xp));
+ return '<div class="grid g2">'+
+ '<div class="card"><h3>Overall completion</h3><div class="big">'+s.pct+'%</div><div class="bar"><i style="width:'+s.pct+'%"></i></div><div class="mut sm">'+s.d+" of "+s.t+" steps · "+goalsDone()+" of "+S.goals.length+" goals complete</div></div>"+
+ '<div class="card"><h3>Daily check-in</h3><p class="mut sm">Show up today and earn +5 XP.</p><button class="'+(done?"ghost":"pri")+'" data-a="checkin" '+(done?"disabled":"")+">"+(done?"✅ Checked in today":"Check in (+5 XP)")+"</button></div></div>"+
+ '<div class="card"><h3>Last 7 days (XP)</h3><div class="wk">'+days.map(d=>'<div class="'+(d.t?"t":"")+'"><small>'+d.xp+'</small><b style="height:'+Math.round(d.xp/mx*80)+'px"></b><small>'+d.l+"</small></div>").join("")+"</div></div>"+
+ '<div class="card"><h3>Up next</h3>'+(nx?'<b>'+esc(nx.g.steps[nx.i].text)+'</b><div class="mut sm">'+esc(nx.g.title)+'</div><div class="acts"><button class="pri" data-a="openguide" data-g="'+nx.g.id+'">Open guide</button></div>':'<p class="mut">Nothing pending. Add a goal or a new step to keep earning XP.</p>')+"</div>";
+}
+function goals(){
+ return '<div class="acts" style="margin:0 0 12px"><button class="pri" data-a="newgoal">＋ New goal</button></div>'+
+ (S.goals.length?S.goals.map(g=>{
+  const d=g.steps.filter(x=>x.done).length,n=g.steps.length,p=n?Math.round(d/n*100):0;
+  return '<div class="card"><b>'+esc(g.title)+"</b>"+(g.completed?' <span class="tag">Complete</span>':"")+
+   '<div class="mut sm">'+esc(g.category||"General")+dueTxt(g)+"</div>"+
+   '<div class="bar" style="margin-top:8px"><i style="width:'+p+'%"></i></div><div class="mut sm">'+d+"/"+n+" steps · "+p+"%</div>"+
+   '<div class="steps">'+g.steps.map(s=>'<label class="st '+(s.done?"dn":"")+'"><input type="checkbox" '+(s.done?"checked":"")+' data-a="toggle" data-g="'+g.id+'" data-s="'+s.id+'"><span>'+esc(s.text)+"</span></label>").join("")+"</div>"+
+   '<div class="acts"><button data-a="openguide" data-g="'+g.id+'">Guide</button><button data-a="editgoal" data-g="'+g.id+'">Edit</button><button class="danger" data-a="delgoal" data-g="'+g.id+'">'+(armed===g.id?"Tap again to delete":"Delete")+"</button></div></div>";
+ }).join(""):'<div class="card mut">No goals yet. Create one, or add the starter template in Settings.</div>');
+}
+function guide(){
+ if(!S.goals.length)return '<div class="card mut">No goals yet. Create one in Goals first.</div>';
+ const g=S.goals.find(x=>x.id===guideGoal)||S.goals[0];guideGoal=g.id;
+ const sel='<label>Goal<select data-change="guidesel">'+S.goals.map(x=>'<option value="'+x.id+'" '+(x.id===g.id?"selected":"")+">"+esc(x.title)+"</option>").join("")+"</select></label>";
+ if(!g.steps.length)return '<div class="card">'+sel+'<p class="mut">This goal has no steps yet. Add some with Edit.</p></div>';
+ guideIdx=Math.min(Math.max(guideIdx,0),g.steps.length-1);
+ const s=g.steps[guideIdx];
+ return '<div class="card">'+sel+(g.notes?'<div class="note">'+md(g.notes)+"</div>":"")+
+  '<div class="dots">'+g.steps.map((x,i)=>'<button class="'+(x.done?"ok ":"")+(i===guideIdx?"cur":"")+'" data-a="gstep" data-i="'+i+'">'+(i+1)+"</button>").join("")+"</div>"+
+  '<h3>Step '+(guideIdx+1)+" of "+g.steps.length+": "+esc(s.text)+"</h3>"+
+  (s.note?'<div class="note">'+md(s.note)+"</div>":'<p class="mut sm">No notes for this step.</p>')+
+  '<div class="acts"><button data-a="gprev" '+(guideIdx===0?"disabled":"")+'>← Back</button><button class="'+(s.done?"ghost":"pri")+'" data-a="gdone">'+(s.done?"Undo (−10 XP)":"Mark done (+10 XP)")+'</button><button data-a="gnext" '+(guideIdx===g.steps.length-1?"disabled":"")+">Next →</button></div></div>";
+}
+function ach(){
+ const L=levelInfo(S.xp).l,cur=rankOf(L);
+ return '<div class="card"><h3>Ranks</h3>'+RANKS.map(r=>'<div class="rank '+(r===cur?"cur":(L<r[0]?"lock":""))+'"><span>'+r[2]+"</span><span style='flex:1'>"+r[1]+'</span><span class="mut sm">Level '+r[0]+"+</span></div>").join("")+"</div>"+
+ '<div class="card"><h3>Stats</h3><div class="mut sm">Level '+L+" · "+S.xp+" XP · "+stepsDone()+" steps done · "+goalsDone()+" goals complete · current streak "+streakNow()+" day(s) · freeze tokens "+freezes()+"</div></div>"+
+ '<h3>Badges ('+Object.keys(S.badges).length+"/"+BADGES.length+')</h3><div class="badges">'+BADGES.map(b=>'<div class="bd '+(S.badges[b[0]]?"":"lock")+'"><div class="e">'+b[3]+"</div><b>"+b[1]+'</b><div class="mut sm">'+b[2]+"</div></div>").join("")+"</div>";
+}
+function settings(){
+ const code=ls.get(LS_SYNC)||"";
+ let baks=[];try{baks=JSON.parse(ls.get(LS_BAK)||"[]")}catch(e){}
+ return '<div class="card"><h3>Cross-device sync</h3>'+
+  '<p class="mut sm">Everything saves on this device first. With a Sync Code, changes merge with your other devices whenever you are online, including edits made while offline. Use the same code on every device.</p>'+
+  '<label>Sync Code / Room ID<input id="code" value="'+esc(code)+'" placeholder="a long secret phrase" autocomplete="off"></label>'+
+  (FIREBASE_CONFIG.projectId?"":'<label>Firebase config (paste from the Firebase console)<textarea id="cfg" rows="5" placeholder=\'{ apiKey: "...", projectId: "...", appId: "..." }\'>'+esc(ls.get(LS_CFG)||"")+"</textarea></label>")+
+  '<div class="acts"><button class="pri" data-a="connect">Save and connect</button><button class="ghost" data-a="disconnect">Disconnect</button></div>'+
+  '<p class="sm" id="syncmsg">'+esc(statusText())+"</p></div>"+
+  '<div class="card"><h3>Backup and data</h3><div class="acts" style="margin-top:0"><button data-a="export">Export JSON</button><button data-a="copy">Copy JSON</button><label class="ghost" style="margin:0;border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer;color:var(--txt);font-size:15px">Import JSON<input type="file" accept=".json,application/json" data-change="import" style="display:none"></label></div>'+
+  '<p class="mut sm">Import, snapshot restore, and reset replace the data on your other devices too.</p>'+
+  (baks.length?'<h4>Automatic snapshots</h4><div class="acts">'+baks.map((b,i)=>'<button data-a="snap" data-i="'+i+'">'+new Date(b.t).toLocaleString()+"</button>").join("")+"</div>":"")+
+  '<div class="acts"><button data-a="template">Add starter template</button><button class="danger" data-a="reset">'+(armed==="reset"?"Tap again to erase everything":"Reset all data")+"</button></div></div>";
+}
+const VIEWS={dash,goals,guide,ach,settings};
+function render(){
+ renderTop();
+ document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
+ $("#view").innerHTML=VIEWS[tab]();
+}
+
+/* ---------- Goal editor ---------- */
+function openEditor(id){
+ isNew=!id;
+ draft=id?clone(S.goals.find(g=>g.id===id)):{id:uid(),title:"",category:"",deadline:"",notes:"",steps:[],completed:false,awarded:false,createdAt:Date.now(),mod:0};
+ drawEditor();
+}
+function drawEditor(){
+ $("#modal").innerHTML='<div class="ov"><div class="dlg"><h3>'+(isNew?"New goal":"Edit goal")+"</h3>"+
+ '<label>Title<input data-f="title" value="'+esc(draft.title)+'"></label>'+
+ '<div class="row"><label>Category<input data-f="category" value="'+esc(draft.category)+'"></label><label>Deadline<input type="date" data-f="deadline" value="'+esc(draft.deadline)+'"></label></div>'+
+ '<label>Goal notes (markdown)<textarea data-f="notes" rows="3">'+esc(draft.notes)+"</textarea></label><h4>Steps</h4>"+
+ draft.steps.map((s,i)=>'<div class="srow"><div class="sn">'+(i+1)+'</div><div class="sf"><input data-sf="text" data-i="'+i+'" value="'+esc(s.text)+'" placeholder="Step title"><textarea data-sf="note" data-i="'+i+'" rows="3" placeholder="How-to notes (markdown: - bullets, **bold**, `code`)">'+esc(s.note)+'</textarea></div><div class="sb"><button data-a="e-up" data-i="'+i+'">↑</button><button data-a="e-dn" data-i="'+i+'">↓</button><button data-a="e-rm" data-i="'+i+'">✕</button></div></div>').join("")+
+ '<button class="ghost" data-a="e-add">＋ Add step</button><div class="acts"><button class="ghost" data-a="e-cancel">Cancel</button><button class="pri" data-a="e-save">Save</button></div></div></div>';
+}
+function closeEditor(){draft=null;$("#modal").innerHTML=""}
+
+/* ---------- Actions ---------- */
+function act(a,el){
+ const d=el.dataset,i=+d.i;
+ switch(a){
+  case "checkin":if(S.lastCheckin!==dstr()){S.lastCheckin=dstr();addXP(5);toast("✅ Daily check-in +5 XP");commit()}break;
+  case "toggle":toggleStep(d.g,d.s);break;
+  case "newgoal":openEditor(null);break;
+  case "editgoal":openEditor(d.g);break;
+  case "delgoal":
+   if(armed===d.g){S.goals=S.goals.filter(g=>g.id!==d.g);S.deleted[d.g]=Date.now();armed=null;commit()}
+   else{armed=d.g;setTimeout(()=>{if(armed===d.g){armed=null;render()}},3000);render()}
+   break;
+  case "openguide":{const g=S.goals.find(x=>x.id===d.g);guideGoal=d.g;guideIdx=g?firstOpen(g):0;tab="guide";render();window.scrollTo(0,0);break}
+  case "gstep":guideIdx=i;render();break;
+  case "gprev":guideIdx--;render();break;
+  case "gnext":guideIdx++;render();break;
+  case "gdone":{
+   const g=S.goals.find(x=>x.id===guideGoal),s=g&&g.steps[guideIdx];if(!s)break;
+   const was=s.done;toggleStep(g.id,s.id);
+   if(!was&&guideIdx<g.steps.length-1){guideIdx++;render()}
+   break}
+  case "e-add":draft.steps.push({id:uid(),text:"",note:"",done:false,doneAt:0,mod:Date.now()});drawEditor();{const ins=document.querySelectorAll('[data-sf="text"]');ins[ins.length-1].focus()}break;
+  case "e-rm":draft.steps.splice(i,1);drawEditor();break;
+  case "e-up":if(i>0){[draft.steps[i-1],draft.steps[i]]=[draft.steps[i],draft.steps[i-1]];drawEditor()}break;
+  case "e-dn":if(i<draft.steps.length-1){[draft.steps[i+1],draft.steps[i]]=[draft.steps[i],draft.steps[i+1]];drawEditor()}break;
+  case "e-cancel":closeEditor();break;
+  case "e-save":{
+   if(!draft.title.trim()){toast("Add a title first");break}
+   draft.title=draft.title.trim();
+   draft.steps=draft.steps.filter(s=>s.text.trim());
+   const now=Date.now();draft.mod=now;draft.steps.forEach(s=>{s.mod=now});
+   const idx=S.goals.findIndex(g=>g.id===draft.id);
+   if(idx>=0)S.goals[idx]=draft;else S.goals.push(draft);
+   settleGoal(draft);closeEditor();commit();break}
+  case "connect":{
+   const c=$("#code").value.trim();ls.set(LS_SYNC,c);
+   const t=$("#cfg");
+   if(t&&t.value.trim()){const o=parseCfg(t.value);if(!o.projectId){toast("Config needs a projectId");return}ls.set(LS_CFG,JSON.stringify(o))}
+   startSync();
+   toast(!c?"Sync code cleared":navigator.onLine?"Connecting…":"Offline: will sync when you are back online");break}
+  case "disconnect":ls.set(LS_SYNC,"");stopSync();setStatus("idle");toast("Sync disconnected (data stays on this device)");break;
+  case "export":exportJSON();break;
+  case "copy":navigator.clipboard.writeText(JSON.stringify(S,null,2)).then(()=>toast("Copied to clipboard"),()=>toast("Copy blocked, use Export"));break;
+  case "snap":{try{const b=JSON.parse(ls.get(LS_BAK));S=normalize(JSON.parse(b[i].d));S.epoch=Date.now();commit();toast("Snapshot restored")}catch(e){toast("Could not restore")}break}
+  case "template":S.goals.push(template(false));commit();toast("Starter template added");break;
+  case "reset":
+   if(armed==="reset"){S=defaultState();S.epoch=Date.now();armed=null;commit();toast("Data reset")}
+   else{armed="reset";setTimeout(()=>{if(armed==="reset"){armed=null;if(tab==="settings")render()}},3000);render()}
+   break;
+ }
+}
+document.addEventListener("click",e=>{
+ const el=e.target.closest("[data-a]");if(el){act(el.dataset.a,el);return}
+ const tb=e.target.closest("[data-tab]");if(tb){tab=tb.dataset.tab;render();window.scrollTo(0,0)}
+});
+document.addEventListener("input",e=>{
+ if(!draft)return;const t=e.target;
+ if(t.dataset.f)draft[t.dataset.f]=t.value;
+ else if(t.dataset.sf)draft.steps[+t.dataset.i][t.dataset.sf]=t.value;
+});
+document.addEventListener("change",e=>{
+ const t=e.target;
+ if(t.dataset.change==="guidesel"){guideGoal=t.value;const g=S.goals.find(x=>x.id===t.value);guideIdx=g?firstOpen(g):0;render()}
+ if(t.dataset.change==="import"&&t.files&&t.files[0]){const r=new FileReader();r.onload=()=>importJSON(r.result);r.readAsText(t.files[0]);t.value=""}
+});
+function exportJSON(){
+ const b=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="builder-quest-"+dstr()+".json";
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+function importJSON(txt){
+ try{const o=JSON.parse(txt);if(!Array.isArray(o.goals))throw 0;S=normalize(o);S.epoch=Date.now();commit();toast("Backup imported")}
+ catch(e){toast("Invalid backup file")}
+}
+
+/* ---------- Firebase sync (Sync Code = room) ---------- */
+let ref=null,unsub=null,syncTimer=null,dirty=false;
+function parseCfg(t){
+ const o={};const re=/["']?(\w+)["']?\s*:\s*["']([^"']*)["']/g;let m;
+ while((m=re.exec(t)))o[m[1]]=m[2];
+ return o;
+}
+function getCfg(){
+ if(FIREBASE_CONFIG.projectId)return FIREBASE_CONFIG;
+ try{const c=JSON.parse(ls.get(LS_CFG));if(c&&c.projectId)return c}catch(e){}
+ return null;
+}
+async function hashCode(s){
+ try{const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("").slice(0,40)}
+ catch(e){let h=5381;for(const c of s)h=((h<<5)+h+c.charCodeAt(0))>>>0;return "h"+h.toString(16)}
+}
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("Could not load Firebase"));document.head.appendChild(s)})}
+function stopSync(){if(unsub){try{unsub()}catch(e){}unsub=null}ref=null;clearTimeout(syncTimer);dirty=false}
+async function startSync(){
+ stopSync();
+ const code=ls.get(LS_SYNC)||"",cfg=getCfg();
+ if(!code||!cfg||!navigator.onLine){setStatus("idle");return}   /* offline: local only until "online" fires */
+ try{
+  setStatus("connecting");
+  if(!window.firebase){
+   await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
+   await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js");
+  }
+  if(!firebase.apps.length)firebase.initializeApp(cfg);
+  const id=await hashCode(code);
+  ref=firebase.firestore().collection("rooms").doc(id);
+  unsub=ref.onSnapshot(snap=>{
+   if(snap.metadata.hasPendingWrites)return;
+   if(!snap.exists){push();return}
+   let remote;try{remote=normalize(JSON.parse(snap.data().state))}catch(e){push();return}
+   const merged=mergeStates(S,remote),cm=canon(merged);
+   if(cm!==canon(S)){S=merged;ls.set(LS_KEY,JSON.stringify(S));render()}
+   if(cm!==canon(remote))push();else setStatus("synced");
+  },err=>setStatus("error",err.message));
+ }catch(e){setStatus("error",e.message)}
+}
+function queueSync(){if(!ref)return;dirty=true;clearTimeout(syncTimer);syncTimer=setTimeout(push,800)}
+function push(){
+ if(!ref||!navigator.onLine)return;   /* offline: data is already safe locally, merge happens on reconnect */
+ dirty=false;setStatus("syncing");
+ ref.set({state:JSON.stringify(S),updatedAt:S.updatedAt}).then(()=>setStatus("synced")).catch(e=>setStatus("error",e.message));
+}
+
+/* ---------- PWA: inline manifest + icons, service worker from sw.js ---------- */
+function setupPWA(){
+ try{
+  const icon=sz=>{
+   const c=document.createElement("canvas");c.width=c.height=sz;const x=c.getContext("2d");
+   x.fillStyle="#0b1220";x.fillRect(0,0,sz,sz);
+   x.strokeStyle="#38bdf8";x.lineWidth=sz*0.05;x.beginPath();x.arc(sz/2,sz/2,sz*0.34,0,Math.PI*2);x.stroke();
+   x.fillStyle="#38bdf8";x.font="bold "+Math.round(sz*0.3)+"px system-ui,sans-serif";x.textAlign="center";x.textBaseline="middle";
+   x.fillText("BQ",sz/2,sz/2+sz*0.02);
+   return c.toDataURL("image/png");
+  };
+  const i192=icon(192),i512=icon(512);
+  const base=location.href.split("#")[0].split("?")[0];
+  const manifest={name:"Builder Quest",short_name:"Builder Quest",description:"Learning goals with XP, levels and streaks",
+   start_url:base,scope:base.slice(0,base.lastIndexOf("/")+1),display:"standalone",orientation:"any",
+   background_color:"#0b1220",theme_color:"#0b1220",
+   icons:[{src:i192,sizes:"192x192",type:"image/png"},{src:i512,sizes:"512x512",type:"image/png"}]};
+  const ml=document.createElement("link");ml.rel="manifest";
+  ml.href=URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:"application/manifest+json"}));
+  document.head.appendChild(ml);
+  const al=document.createElement("link");al.rel="apple-touch-icon";al.href=i192;document.head.appendChild(al);
+ }catch(e){}
+ if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol)){
+  window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})});
+ }
+}
+
+/* ---------- Init ---------- */
+setupPWA();
+render();
+startSync();
+window.addEventListener("online",()=>{toast("Back online");startSync()});
+window.addEventListener("offline",()=>{refreshNet();toast("Offline: changes save on this device")});
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&dirty&&ref){clearTimeout(syncTimer);push()}});
+setInterval(()=>{if(navigator.onLine&&syncState==="error"&&ls.get(LS_SYNC))startSync()},30000);
+</script>
+</body>
+</html>
