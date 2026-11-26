@@ -15,6 +15,7 @@ html,body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 system-ui
 button,input,textarea,select{font:inherit;color:inherit}
 button{cursor:pointer;border:1px solid var(--line);background:var(--card2);border-radius:10px;padding:8px 14px;transition:border-color .15s,transform .1s}
 button:hover{border-color:var(--acc)}button:active{transform:scale(.97)}
+button:disabled{opacity:.5;cursor:default}
 .pri{background:var(--acc);color:#04202e;border-color:var(--acc);font-weight:600}
 .ghost{background:transparent}
 .danger{color:var(--bad);border-color:#4b2230}
@@ -24,8 +25,10 @@ input[type=checkbox]{width:18px;height:18px;padding:0;accent-color:var(--acc);fl
 label{display:block;margin-bottom:10px;color:var(--mut);font-size:13px}
 label input,label textarea,label select{margin-top:4px;color:var(--txt);font-size:15px}
 h3{margin:0 0 8px}h4{margin:12px 0 6px}
-.mut{color:var(--mut)}.sm{font-size:13px}.bad{color:var(--bad)}
+.mut{color:var(--mut)}.sm{font-size:13px}.bad{color:var(--bad)}.warnc{color:var(--warn)}
 code{background:#0d1627;padding:1px 6px;border-radius:6px;color:var(--acc)}
+pre{overflow-x:auto;background:#0d1627;padding:10px;border-radius:8px}
+pre code{background:none;padding:0;color:var(--txt)}
 #app{min-height:100vh}
 main{padding:12px 14px 96px}
 .wrap{max-width:860px;margin:0 auto}
@@ -69,6 +72,7 @@ main{padding:12px 14px 96px}
 .steps{margin-top:8px}
 .st{display:flex;gap:10px;align-items:center;padding:6px 0;color:var(--txt);font-size:15px;margin:0;border-top:1px solid #172340}
 .st.dn span{color:var(--mut);text-decoration:line-through}
+.xp{font-style:normal;margin-left:auto;font-size:12px;color:var(--acc);flex:none}
 .wk{display:flex;gap:8px;align-items:flex-end;height:120px;margin-top:8px}
 .wk>div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%}
 .wk b{width:100%;border-radius:6px 6px 2px 2px;background:var(--acc);min-height:3px;opacity:.85}
@@ -80,6 +84,7 @@ main{padding:12px 14px 96px}
 .dots .cur{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc)}
 .note{background:#0d1627;border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-top:10px}
 .note p{margin:6px 0}.note ul{margin:6px 0;padding-left:20px}.note h4{color:var(--acc)}
+.note pre{background:#0a1120;border:1px solid var(--line)}
 .badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
 .bd{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
 .bd.lock{opacity:.4;filter:grayscale(1)}
@@ -96,6 +101,24 @@ main{padding:12px 14px 96px}
 #toast{position:fixed;left:0;right:0;bottom:84px;z-index:60;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
 .t{background:#0d1627;border:1px solid var(--acc);padding:8px 16px;border-radius:99px;animation:up .3s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
 @keyframes up{from{opacity:0;transform:translateY(10px)}}
+/* category pills */
+.pills{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.pill{border-radius:99px;padding:5px 12px;font-size:13px}
+.pill.on{background:var(--acc);color:#04202e;border-color:var(--acc);font-weight:600}
+.pill small{opacity:.7;margin-left:2px}
+/* alerts banner */
+.alerts{background:#241c0a;border:1px solid var(--warn);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.alerts.bad{border-color:var(--bad);background:#2a1216}
+.alerts h3{color:var(--warn);font-size:16px;margin-bottom:2px}
+.alerts.bad h3{color:var(--bad)}
+.al{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 8px 8px 10px;border-left:3px solid var(--warn);margin-top:8px;background:rgba(251,191,36,.07);border-radius:0 8px 8px 0}
+.al.bad{border-left-color:var(--bad);background:rgba(248,113,113,.09)}
+.al>div{min-width:0}
+.al button{flex:none;padding:5px 12px}
+/* quick tasks and toggles */
+.qf{display:flex;gap:8px;margin-bottom:6px}
+.qf input{flex:1;min-width:0}
+.tg{display:flex;gap:10px;align-items:center;color:var(--txt);font-size:15px;margin-bottom:6px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -120,6 +143,9 @@ const FIREBASE_CONFIG = { apiKey:"", authDomain:"", projectId:"", storageBucket:
 /* ================================================================================== */
 
 const LS_KEY="bq_state_v1", LS_BAK="bq_backup_v1", LS_SYNC="bq_synccode_v1", LS_CFG="bq_fbcfg_v1";
+const LS_NOTIF="bq_notify_v1", LS_NDAY="bq_notified_day_v1";   /* per-device notification settings (not synced) */
+const CATS=["Electrical Eng","School","Fitness","Business","Personal"];
+const DEFAULT_CAT="Electrical Eng";
 const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 const $=(s,el=document)=>el.querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3);
@@ -138,28 +164,35 @@ function weekKey(d=new Date()){const x=new Date(d);x.setDate(x.getDate()-((x.get
 /* ---------- Starter template ---------- */
 function template(fixed){
  const st=(i,text,note)=>({id:fixed?"ee"+i:uid(),text,note,done:false,doneAt:0,mod:0});
- return {id:fixed?"starter-ee":uid(),title:"Electrical Engineering Freshman Prep",category:"Engineering",deadline:"",
+ return {id:fixed?"starter-ee":uid(),title:"Electrical Engineering Freshman Prep",category:DEFAULT_CAT,deadline:"",
   notes:"Four focused milestones to get ready for first-year EE. Aim for **30-45 minutes a day**.",
   steps:[
    st(1,"Milestone 1: Refresh algebra and trigonometry","- Review solving linear systems, exponents, and logarithms\n- Memorize the unit circle and the main trig identities\n- Do about 10 practice problems a day until they feel automatic\n- Free resources: Khan Academy, Paul's Online Math Notes"),
    st(2,"Milestone 2: Learn Calculus I basics","- Understand limits, then derivatives and the chain rule\n- Learn basic integrals and what area under a curve means\n- Link it to circuits: current is the derivative of charge\n- Finish one chapter of practice problems per week"),
    st(3,"Milestone 3: Master basic circuits","- Learn **Ohm's law** (V = IR) and power (P = VI)\n- Practice Kirchhoff's voltage and current laws\n- Solve series and parallel resistor networks by hand\n- Check your answers in a free simulator such as Falstad or Tinkercad Circuits"),
    st(4,"Milestone 4: Get hands-on with code and tools","- Write small programs in Python or C (loops, functions, arrays)\n- Blink an LED with an Arduino or similar board\n- Learn the multimeter: voltage, continuity, resistance\n- Keep a project log of what worked and what broke")
-  ],completed:false,awarded:false,createdAt:fixed?0:Date.now(),mod:fixed?0:Date.now()};
+  ],completed:false,awarded:false,createdAt:Date.now(),mod:fixed?0:Date.now()};
 }
 
 /* ---------- State ---------- */
-function defaultState(){return {v:2,epoch:0,goals:[template(true)],deleted:{},xp:0,log:{},streak:{count:0,last:"",freezes:1,week:weekKey()},badges:{},lastCheckin:"",updatedAt:0}}
+function defaultState(){return {v:2,epoch:0,goals:[template(true)],tasks:[],deleted:{},xp:0,log:{},streak:{count:0,last:"",freezes:1,week:weekKey()},badges:{},lastCheckin:"",updatedAt:0}}
 function normalize(o){
  const s=Object.assign(defaultState(),o);
  s.streak=Object.assign(defaultState().streak,o.streak||{});
  s.log=o.log||{};s.badges=o.badges||{};s.deleted=o.deleted||{};s.epoch=o.epoch||0;
- s.goals.forEach(g=>{g.mod=g.mod||0;g.steps=g.steps||[];g.steps.forEach(x=>{x.mod=x.mod||0})});
+ s.tasks=Array.isArray(o.tasks)?o.tasks:[];
+ s.tasks.forEach(t=>{t.mod=t.mod||0;t.at=t.at||0});
+ s.goals.forEach(g=>{
+  g.mod=g.mod||0;g.steps=g.steps||[];g.steps.forEach(x=>{x.mod=x.mod||0});
+  if(!g.createdAt)g.createdAt=Date.now();
+  if(g.id==="starter-ee"&&g.category==="Engineering")g.category=DEFAULT_CAT;
+  if(!g.category)g.category=DEFAULT_CAT;
+ });
  return s;
 }
 function load(){try{const s=JSON.parse(ls.get(LS_KEY));if(s&&Array.isArray(s.goals))return normalize(s)}catch(e){}return defaultState()}
 let S=load();
-let tab="dash",guideGoal=null,guideIdx=0,flash=false,armed=null,draft=null,isNew=false;
+let tab="dash",guideGoal=null,guideIdx=0,flash=false,armed=null,draft=null,isNew=false,catFilter="All";
 
 /* Every change is written to LocalStorage first, then queued for Firebase. */
 function commit(){
@@ -196,13 +229,17 @@ function mergeStates(a,b){
   if((del[id]||0)>g.mod)return;
   goals.push(g);
  });
+ /* quick tasks: newest edit per id wins, cleared tasks stay cleared */
+ const tmap={};
+ [p,q].forEach(s=>(s.tasks||[]).forEach(t=>{const o=tmap[t.id];if(!o||t.mod>o.mod)tmap[t.id]=t}));
+ const tasks=Object.keys(tmap).map(k=>clone(tmap[k])).filter(t=>!((del[t.id]||0)>t.mod)).sort((x,y)=>(x.at||0)-(y.at||0));
  const log={};[a.log,b.log].forEach(o=>Object.keys(o||{}).forEach(k=>{log[k]=Math.max(log[k]||0,o[k])}));
  const xp=Object.keys(log).reduce((t,k)=>t+log[k],0);
  const sa=a.streak,sb=b.streak;
  let st=sb.last>sa.last?sb:sa;if(sa.last===sb.last)st=sb.count>sa.count?sb:sa;
  st=clone(st);if(sa.week===sb.week)st.freezes=Math.min(sa.freezes,sb.freezes);
  const badges={};[a.badges,b.badges].forEach(o=>Object.keys(o||{}).forEach(k=>{badges[k]=badges[k]?Math.min(badges[k],o[k]):o[k]}));
- return normalize({v:2,epoch:a.epoch||0,goals,deleted:del,xp,log,streak:st,badges,
+ return normalize({v:2,epoch:a.epoch||0,goals,tasks,deleted:del,xp,log,streak:st,badges,
   lastCheckin:a.lastCheckin>b.lastCheckin?a.lastCheckin:b.lastCheckin,updatedAt:Math.max(a.updatedAt,b.updatedAt)});
 }
 
@@ -252,6 +289,91 @@ function toggleStep(gid,sid){
  settleGoal(g);commit();
 }
 
+/* ---------- Quick tasks ---------- */
+function pruneTasks(){   /* completed tasks from earlier days disappear automatically */
+ const today=dstr(),now=Date.now();let ch=false;
+ S.tasks=S.tasks.filter(t=>{
+  if(t.done&&t.doneAt&&dstr(new Date(t.doneAt))<today){S.deleted[t.id]=now;ch=true;return false}
+  return true;
+ });
+ return ch;
+}
+
+/* ---------- Deadlines and pace ---------- */
+function paceInfo(g){
+ if(!g.deadline||g.completed)return null;
+ const today=dayNum(dstr()),due=dayNum(g.deadline),left=due-today;
+ const n=g.steps.length,dn=g.steps.filter(s=>s.done).length;
+ const donePct=n?Math.round(dn/n*100):0;
+ const start=Math.min(dayNum(dstr(new Date(g.createdAt||Date.now()))),due);
+ const span=Math.max(1,due-start);
+ const timePct=Math.round(Math.min(span,Math.max(0,today-start))/span*100);
+ let level=null,label="";
+ if(left<0){level="bad";label="Overdue by "+(-left)+" day"+(left===-1?"":"s")}
+ else if(left===0){level="warn";label="Due today"}
+ else if(left===1){level="warn";label="Due tomorrow"}
+ else if(n&&donePct<timePct){level="warn";label="Behind pace"}
+ const text=label+" · "+donePct+"% done vs "+timePct+"% of time used"+(left>1?" · "+left+" days left":"");
+ return {level,label,text,left,donePct,timePct};
+}
+function alertList(){
+ return S.goals.map(g=>({g,p:paceInfo(g)})).filter(x=>x.p&&x.p.level)
+  .sort((a,b)=>(a.p.level==="bad"?0:1)-(b.p.level==="bad"?0:1)||a.p.left-b.p.left);
+}
+
+/* ---------- Calendar (.ics) ---------- */
+function icsEsc(s){return String(s).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n")}
+function icsFold(l){let o="";while(l.length>73){o+=l.slice(0,73)+"\r\n ";l=l.slice(73)}return o+l}
+function dlICS(g){
+ if(!g.deadline){toast("This goal has no deadline");return}
+ const due=dayNum(g.deadline),rem=due-1;
+ const ymd=n=>new Date(n*864e5).toISOString().slice(0,10).replace(/-/g,"");
+ const stamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"");
+ const sum="Reminder: "+g.title+" is due tomorrow";
+ const desc="Builder Quest goal \""+g.title+"\" is due on "+g.deadline+".";
+ const lines=[
+  "BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Builder Quest//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH",
+  "BEGIN:VEVENT",
+  "UID:bq-"+g.id+"-"+ymd(due)+"@builderquest",
+  "DTSTAMP:"+stamp,
+  "DTSTART;VALUE=DATE:"+ymd(rem),
+  "DTEND;VALUE=DATE:"+ymd(rem+1),
+  "SUMMARY:"+icsEsc(sum),
+  "DESCRIPTION:"+icsEsc(desc),
+  "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+icsEsc(sum),"TRIGGER:PT9H","END:VALARM",
+  "END:VEVENT","END:VCALENDAR"
+ ];
+ const slug=g.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,30)||"goal";
+ download("deadline-reminder-"+slug+".ics",lines.map(icsFold).join("\r\n")+"\r\n","text/calendar");
+ toast("📅 Calendar file downloaded");
+}
+function download(name,text,type){
+ const b=new Blob([text],{type});
+ const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+
+/* ---------- Browser notifications (once per day, on app open) ---------- */
+async function fireNotice(title,body){
+ try{
+  if("serviceWorker" in navigator){
+   const reg=await navigator.serviceWorker.getRegistration();
+   if(reg&&reg.active&&reg.showNotification){await reg.showNotification(title,{body,tag:"bq-daily"});return true}
+  }
+ }catch(e){}
+ try{new Notification(title,{body,tag:"bq-daily"});return true}catch(e){return false}
+}
+async function maybeNotify(){
+ try{
+  if(ls.get(LS_NOTIF)!=="1"||!("Notification" in window)||Notification.permission!=="granted")return;
+  const today=dstr();if(ls.get(LS_NDAY)===today)return;
+  const list=alertList();if(!list.length)return;
+  const body=list.slice(0,3).map(a=>a.g.title+": "+a.p.label).join("\n")+(list.length>3?"\n+"+(list.length-3)+" more":"");
+  const ok=await fireNotice("Builder Quest: "+list.length+" goal"+(list.length>1?"s":"")+" need attention",body);
+  if(ok)ls.set(LS_NDAY,today);
+ }catch(e){}
+}
+
 /* ---------- Badges ---------- */
 const stepsDone=()=>S.goals.reduce((a,g)=>a+g.steps.filter(s=>s.done).length,0);
 const goalsDone=()=>S.goals.filter(g=>g.completed).length;
@@ -275,8 +397,13 @@ function toast(m){
 }
 function md(t){
  const inl=s=>s.replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>").replace(/(^|[^*])\*([^*]+)\*/g,"$1<i>$2</i>");
- let out="",list=false;
+ let out="",list=false,code=false;
  for(const l of esc(t||"").split("\n")){
+  if(/^\s*```/.test(l)){                       /* fenced code block */
+   if(list){out+="</ul>";list=false}
+   out+=code?"</code></pre>":"<pre><code>";code=!code;continue;
+  }
+  if(code){out+=l+"\n";continue}
   const li=l.match(/^\s*[-*]\s+(.*)/);
   if(li){if(!list){out+="<ul>";list=true}out+="<li>"+inl(li[1])+"</li>";continue}
   if(list){out+="</ul>";list=false}
@@ -284,15 +411,18 @@ function md(t){
   if(h)out+="<h4>"+inl(h[1])+"</h4>";else if(l.trim())out+="<p>"+inl(l)+"</p>";
  }
  if(list)out+="</ul>";
+ if(code)out+="</code></pre>";
  return out;
 }
 function stats(){let t=0,d=0;S.goals.forEach(g=>g.steps.forEach(s=>{t++;if(s.done)d++}));return {t,d,pct:t?Math.round(d/t*100):0}}
 function dueTxt(g){
  if(!g.deadline)return "";
- const [y,m,d]=g.deadline.split("-").map(Number);const od=!g.completed&&g.deadline<dstr();
- return ' · <span class="'+(od?"bad":"")+'">Due '+new Date(y,m-1,d).toLocaleDateString(undefined,{month:"short",day:"numeric"})+(od?" (overdue)":"")+"</span>";
+ const [y,m,d]=g.deadline.split("-").map(Number);const p=paceInfo(g);
+ const cls=p&&p.level==="bad"?"bad":(p&&p.level==="warn"?"warnc":"");
+ return ' · <span class="'+cls+'">Due '+new Date(y,m-1,d).toLocaleDateString(undefined,{month:"short",day:"numeric"})+(p&&p.label?" ("+esc(p.label.toLowerCase())+")":"")+"</span>";
 }
 function firstOpen(g){const i=g.steps.findIndex(s=>!s.done);return i<0?0:i}
+function catOptions(){const set=CATS.slice();S.goals.forEach(g=>{const c=g.category;if(c&&set.indexOf(c)<0)set.push(c)});return set}
 
 /* ---------- Network / sync status ---------- */
 let syncState="idle",syncMsg="";   /* idle | connecting | syncing | synced | error */
@@ -317,28 +447,54 @@ function renderTop(){
   '<div class="chip" title="Freeze tokens this week: '+freezes()+'">🔥 '+streakNow()+"</div></div>"+
   '<button class="net '+n[0]+'" data-tab="settings" title="Open sync settings"><i></i>'+esc(n[1])+"</button>";
 }
+function alertsHTML(){
+ const list=alertList();if(!list.length)return "";
+ const anyBad=list.some(a=>a.p.level==="bad");
+ return '<div class="alerts '+(anyBad?"bad":"")+'"><h3>🔔 Reminders and pace alerts ('+list.length+")</h3>"+
+  list.map(a=>'<div class="al '+a.p.level+'"><div><b>'+esc(a.g.title)+'</b><div class="sm mut">'+esc(a.p.text)+'</div></div><button data-a="openguide" data-g="'+a.g.id+'">Open</button></div>').join("")+"</div>";
+}
+function tasksCard(){
+ const ts=S.tasks.slice().sort((a,b)=>(a.done-b.done)||((a.at||0)-(b.at||0)));
+ const done=ts.filter(t=>t.done).length;
+ return '<div class="card"><h3>Today&#39;s Quick Tasks</h3>'+
+  '<form data-form="qt" class="qf"><input id="qt" maxlength="120" placeholder="Add a one-off task (+15 XP when done)" autocomplete="off"><button class="pri" type="submit">Add</button></form>'+
+  (ts.length?ts.map(t=>'<label class="st '+(t.done?"dn":"")+'"><input type="checkbox" '+(t.done?"checked":"")+' data-a="qtoggle" data-t="'+t.id+'"><span>'+esc(t.text)+'</span><em class="xp">+15 XP</em></label>').join(""):'<p class="mut sm" style="margin:6px 0 0">No tasks yet. Add something small you can finish today.</p>')+
+  (done?'<div class="acts"><button data-a="qclear">Clear completed ('+done+")</button></div>":"")+"</div>";
+}
 function dash(){
  const s=stats(),done=S.lastCheckin===dstr();
  let nx=null;for(const g of S.goals){const i=g.steps.findIndex(x=>!x.done);if(i>=0){nx={g,i};break}}
  const days=[];
  for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const k=dstr(d);days.push({xp:S.log[k]||0,l:d.toLocaleDateString(undefined,{weekday:"narrow"}),t:i===0})}
  const mx=Math.max(20,...days.map(d=>d.xp));
- return '<div class="grid g2">'+
+ return alertsHTML()+
+ '<div class="grid g2">'+
  '<div class="card"><h3>Overall completion</h3><div class="big">'+s.pct+'%</div><div class="bar"><i style="width:'+s.pct+'%"></i></div><div class="mut sm">'+s.d+" of "+s.t+" steps · "+goalsDone()+" of "+S.goals.length+" goals complete</div></div>"+
  '<div class="card"><h3>Daily check-in</h3><p class="mut sm">Show up today and earn +5 XP.</p><button class="'+(done?"ghost":"pri")+'" data-a="checkin" '+(done?"disabled":"")+">"+(done?"✅ Checked in today":"Check in (+5 XP)")+"</button></div></div>"+
+ tasksCard()+
  '<div class="card"><h3>Last 7 days (XP)</h3><div class="wk">'+days.map(d=>'<div class="'+(d.t?"t":"")+'"><small>'+d.xp+'</small><b style="height:'+Math.round(d.xp/mx*80)+'px"></b><small>'+d.l+"</small></div>").join("")+"</div></div>"+
  '<div class="card"><h3>Up next</h3>'+(nx?'<b>'+esc(nx.g.steps[nx.i].text)+'</b><div class="mut sm">'+esc(nx.g.title)+'</div><div class="acts"><button class="pri" data-a="openguide" data-g="'+nx.g.id+'">Open guide</button></div>':'<p class="mut">Nothing pending. Add a goal or a new step to keep earning XP.</p>')+"</div>";
 }
+function catPills(){
+ const counts={};S.goals.forEach(g=>{const c=g.category||"General";counts[c]=(counts[c]||0)+1});
+ const names=Object.keys(counts).sort((a,b)=>{const ia=CATS.indexOf(a),ib=CATS.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b)});
+ if(catFilter!=="All"&&!counts[catFilter])catFilter="All";
+ return '<div class="pills">'+["All"].concat(names).map(c=>'<button class="pill '+(c===catFilter?"on":"")+'" data-a="catf" data-c="'+esc(c)+'">'+esc(c)+" <small>"+(c==="All"?S.goals.length:counts[c])+"</small></button>").join("")+"</div>";
+}
 function goals(){
- return '<div class="acts" style="margin:0 0 12px"><button class="pri" data-a="newgoal">＋ New goal</button></div>'+
- (S.goals.length?S.goals.map(g=>{
+ const pills=catPills();
+ const list=S.goals.filter(g=>catFilter==="All"||(g.category||"General")===catFilter);
+ return pills+'<div class="acts" style="margin:0 0 12px"><button class="pri" data-a="newgoal">＋ New goal</button></div>'+
+ (list.length?list.map(g=>{
   const d=g.steps.filter(x=>x.done).length,n=g.steps.length,p=n?Math.round(d/n*100):0;
   return '<div class="card"><b>'+esc(g.title)+"</b>"+(g.completed?' <span class="tag">Complete</span>':"")+
    '<div class="mut sm">'+esc(g.category||"General")+dueTxt(g)+"</div>"+
    '<div class="bar" style="margin-top:8px"><i style="width:'+p+'%"></i></div><div class="mut sm">'+d+"/"+n+" steps · "+p+"%</div>"+
    '<div class="steps">'+g.steps.map(s=>'<label class="st '+(s.done?"dn":"")+'"><input type="checkbox" '+(s.done?"checked":"")+' data-a="toggle" data-g="'+g.id+'" data-s="'+s.id+'"><span>'+esc(s.text)+"</span></label>").join("")+"</div>"+
-   '<div class="acts"><button data-a="openguide" data-g="'+g.id+'">Guide</button><button data-a="editgoal" data-g="'+g.id+'">Edit</button><button class="danger" data-a="delgoal" data-g="'+g.id+'">'+(armed===g.id?"Tap again to delete":"Delete")+"</button></div></div>";
- }).join(""):'<div class="card mut">No goals yet. Create one, or add the starter template in Settings.</div>');
+   '<div class="acts"><button data-a="openguide" data-g="'+g.id+'">Guide</button><button data-a="editgoal" data-g="'+g.id+'">Edit</button>'+
+   (g.deadline?'<button data-a="ics" data-g="'+g.id+'">📅 Add Deadline to Calendar</button>':"")+
+   '<button class="danger" data-a="delgoal" data-g="'+g.id+'">'+(armed===g.id?"Tap again to delete":"Delete")+"</button></div></div>";
+ }).join(""):'<div class="card mut">'+(S.goals.length?"No goals in this area yet.":"No goals yet. Create one, or add the starter template in Settings.")+"</div>");
 }
 function guide(){
  if(!S.goals.length)return '<div class="card mut">No goals yet. Create one in Goals first.</div>';
@@ -347,7 +503,7 @@ function guide(){
  if(!g.steps.length)return '<div class="card">'+sel+'<p class="mut">This goal has no steps yet. Add some with Edit.</p></div>';
  guideIdx=Math.min(Math.max(guideIdx,0),g.steps.length-1);
  const s=g.steps[guideIdx];
- return '<div class="card">'+sel+(g.notes?'<div class="note">'+md(g.notes)+"</div>":"")+
+ return '<div class="card">'+sel+'<div class="mut sm" style="margin:-4px 0 8px">'+esc(g.category||"General")+dueTxt(g)+"</div>"+(g.notes?'<div class="note">'+md(g.notes)+"</div>":"")+
   '<div class="dots">'+g.steps.map((x,i)=>'<button class="'+(x.done?"ok ":"")+(i===guideIdx?"cur":"")+'" data-a="gstep" data-i="'+i+'">'+(i+1)+"</button>").join("")+"</div>"+
   '<h3>Step '+(guideIdx+1)+" of "+g.steps.length+": "+esc(s.text)+"</h3>"+
   (s.note?'<div class="note">'+md(s.note)+"</div>":'<p class="mut sm">No notes for this step.</p>')+
@@ -359,6 +515,17 @@ function ach(){
  '<div class="card"><h3>Stats</h3><div class="mut sm">Level '+L+" · "+S.xp+" XP · "+stepsDone()+" steps done · "+goalsDone()+" goals complete · current streak "+streakNow()+" day(s) · freeze tokens "+freezes()+"</div></div>"+
  '<h3>Badges ('+Object.keys(S.badges).length+"/"+BADGES.length+')</h3><div class="badges">'+BADGES.map(b=>'<div class="bd '+(S.badges[b[0]]?"":"lock")+'"><div class="e">'+b[3]+"</div><b>"+b[1]+'</b><div class="mut sm">'+b[2]+"</div></div>").join("")+"</div>";
 }
+function notifCard(){
+ const sup="Notification" in window,perm=sup?Notification.permission:"unsupported";
+ const on=ls.get(LS_NOTIF)==="1"&&perm==="granted";
+ let msg="Sends one notification per day when you open the app and a goal is due within 1 day, overdue, or behind pace. Browsers cannot wake a closed app without a push server, so it fires when you open Builder Quest.";
+ if(!sup)msg="This browser does not support notifications.";
+ else if(perm==="denied")msg="Notifications are blocked for this site. Allow them in your browser's site settings, then turn this on again.";
+ return '<div class="card"><h3>Reminders</h3>'+
+  '<label class="tg"><input type="checkbox" data-change="notif" '+(on?"checked":"")+(sup?"":" disabled")+'><span>Enable Browser Notifications</span></label>'+
+  '<p class="mut sm" style="margin:0">'+esc(msg)+"</p>"+
+  (on?'<div class="acts"><button data-a="testnotif">Send test notification</button></div>':"")+"</div>";
+}
 function settings(){
  const code=ls.get(LS_SYNC)||"";
  let baks=[];try{baks=JSON.parse(ls.get(LS_BAK)||"[]")}catch(e){}
@@ -368,6 +535,7 @@ function settings(){
   (FIREBASE_CONFIG.projectId?"":'<label>Firebase config (paste from the Firebase console)<textarea id="cfg" rows="5" placeholder=\'{ apiKey: "...", projectId: "...", appId: "..." }\'>'+esc(ls.get(LS_CFG)||"")+"</textarea></label>")+
   '<div class="acts"><button class="pri" data-a="connect">Save and connect</button><button class="ghost" data-a="disconnect">Disconnect</button></div>'+
   '<p class="sm" id="syncmsg">'+esc(statusText())+"</p></div>"+
+  notifCard()+
   '<div class="card"><h3>Backup and data</h3><div class="acts" style="margin-top:0"><button data-a="export">Export JSON</button><button data-a="copy">Copy JSON</button><label class="ghost" style="margin:0;border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer;color:var(--txt);font-size:15px">Import JSON<input type="file" accept=".json,application/json" data-change="import" style="display:none"></label></div>'+
   '<p class="mut sm">Import, snapshot restore, and reset replace the data on your other devices too.</p>'+
   (baks.length?'<h4>Automatic snapshots</h4><div class="acts">'+baks.map((b,i)=>'<button data-a="snap" data-i="'+i+'">'+new Date(b.t).toLocaleString()+"</button>").join("")+"</div>":"")+
@@ -383,15 +551,17 @@ function render(){
 /* ---------- Goal editor ---------- */
 function openEditor(id){
  isNew=!id;
- draft=id?clone(S.goals.find(g=>g.id===id)):{id:uid(),title:"",category:"",deadline:"",notes:"",steps:[],completed:false,awarded:false,createdAt:Date.now(),mod:0};
+ draft=id?clone(S.goals.find(g=>g.id===id)):{id:uid(),title:"",category:catFilter!=="All"?catFilter:DEFAULT_CAT,deadline:"",notes:"",steps:[],completed:false,awarded:false,createdAt:Date.now(),mod:0};
  drawEditor();
 }
 function drawEditor(){
  $("#modal").innerHTML='<div class="ov"><div class="dlg"><h3>'+(isNew?"New goal":"Edit goal")+"</h3>"+
  '<label>Title<input data-f="title" value="'+esc(draft.title)+'"></label>'+
- '<div class="row"><label>Category<input data-f="category" value="'+esc(draft.category)+'"></label><label>Deadline<input type="date" data-f="deadline" value="'+esc(draft.deadline)+'"></label></div>'+
+ '<div class="row"><label>Category (pick below or type your own)<input id="catin" data-f="category" maxlength="30" value="'+esc(draft.category)+'"></label><label>Target deadline (optional)<input type="date" data-f="deadline" value="'+esc(draft.deadline)+'"></label></div>'+
+ '<div class="pills" style="margin-top:-4px">'+catOptions().map(c=>'<button type="button" class="pill '+(draft.category===c?"on":"")+'" data-a="e-cat" data-c="'+esc(c)+'">'+esc(c)+"</button>").join("")+"</div>"+
+ '<div class="acts" style="margin:-2px 0 10px"><button type="button" class="ghost sm" data-a="e-nodate">Clear deadline</button></div>'+
  '<label>Goal notes (markdown)<textarea data-f="notes" rows="3">'+esc(draft.notes)+"</textarea></label><h4>Steps</h4>"+
- draft.steps.map((s,i)=>'<div class="srow"><div class="sn">'+(i+1)+'</div><div class="sf"><input data-sf="text" data-i="'+i+'" value="'+esc(s.text)+'" placeholder="Step title"><textarea data-sf="note" data-i="'+i+'" rows="3" placeholder="How-to notes (markdown: - bullets, **bold**, `code`)">'+esc(s.note)+'</textarea></div><div class="sb"><button data-a="e-up" data-i="'+i+'">↑</button><button data-a="e-dn" data-i="'+i+'">↓</button><button data-a="e-rm" data-i="'+i+'">✕</button></div></div>').join("")+
+ draft.steps.map((s,i)=>'<div class="srow"><div class="sn">'+(i+1)+'</div><div class="sf"><input data-sf="text" data-i="'+i+'" value="'+esc(s.text)+'" placeholder="Step title"><textarea data-sf="note" data-i="'+i+'" rows="3" placeholder="How-to notes (markdown: - bullets, **bold**, ``` code fences)">'+esc(s.note)+'</textarea></div><div class="sb"><button data-a="e-up" data-i="'+i+'">↑</button><button data-a="e-dn" data-i="'+i+'">↓</button><button data-a="e-rm" data-i="'+i+'">✕</button></div></div>').join("")+
  '<button class="ghost" data-a="e-add">＋ Add step</button><div class="acts"><button class="ghost" data-a="e-cancel">Cancel</button><button class="pri" data-a="e-save">Save</button></div></div></div>';
 }
 function closeEditor(){draft=null;$("#modal").innerHTML=""}
@@ -402,6 +572,21 @@ function act(a,el){
  switch(a){
   case "checkin":if(S.lastCheckin!==dstr()){S.lastCheckin=dstr();addXP(5);toast("✅ Daily check-in +5 XP");commit()}break;
   case "toggle":toggleStep(d.g,d.s);break;
+  case "qtoggle":{
+   const t=S.tasks.find(x=>x.id===d.t);if(!t)break;
+   const now=Date.now();t.done=!t.done;t.mod=now;t.doneAt=t.done?now:0;
+   addXP(t.done?15:-15);if(t.done)toast("✅ Task done +15 XP");
+   commit();break}
+  case "qclear":{
+   const now=Date.now();
+   S.tasks.filter(t=>t.done).forEach(t=>{S.deleted[t.id]=now});
+   S.tasks=S.tasks.filter(t=>!t.done);commit();break}
+  case "catf":catFilter=d.c;render();break;
+  case "ics":{const g=S.goals.find(x=>x.id===d.g);if(g)dlICS(g);break}
+  case "testnotif":
+   if(!("Notification" in window)||Notification.permission!=="granted"){toast("Enable notifications first");break}
+   fireNotice("Builder Quest","Notifications are working.").then(ok=>toast(ok?"Test notification sent":"Could not show a notification"));
+   break;
   case "newgoal":openEditor(null);break;
   case "editgoal":openEditor(d.g);break;
   case "delgoal":
@@ -417,6 +602,12 @@ function act(a,el){
    const was=s.done;toggleStep(g.id,s.id);
    if(!was&&guideIdx<g.steps.length-1){guideIdx++;render()}
    break}
+  case "e-cat":{
+   draft.category=d.c;
+   const inp=$("#catin");if(inp)inp.value=d.c;
+   document.querySelectorAll(".dlg .pill").forEach(b=>b.classList.toggle("on",b.dataset.c===d.c));
+   break}
+  case "e-nodate":{draft.deadline="";const di=document.querySelector('.dlg [data-f="deadline"]');if(di)di.value="";break}
   case "e-add":draft.steps.push({id:uid(),text:"",note:"",done:false,doneAt:0,mod:Date.now()});drawEditor();{const ins=document.querySelectorAll('[data-sf="text"]');ins[ins.length-1].focus()}break;
   case "e-rm":draft.steps.splice(i,1);drawEditor();break;
   case "e-up":if(i>0){[draft.steps[i-1],draft.steps[i]]=[draft.steps[i],draft.steps[i-1]];drawEditor()}break;
@@ -425,6 +616,8 @@ function act(a,el){
   case "e-save":{
    if(!draft.title.trim()){toast("Add a title first");break}
    draft.title=draft.title.trim();
+   draft.category=(draft.category||"").trim()||DEFAULT_CAT;
+   if(!draft.createdAt)draft.createdAt=Date.now();
    draft.steps=draft.steps.filter(s=>s.text.trim());
    const now=Date.now();draft.mod=now;draft.steps.forEach(s=>{s.mod=now});
    const idx=S.goals.findIndex(g=>g.id===draft.id);
@@ -451,21 +644,43 @@ document.addEventListener("click",e=>{
  const el=e.target.closest("[data-a]");if(el){act(el.dataset.a,el);return}
  const tb=e.target.closest("[data-tab]");if(tb){tab=tb.dataset.tab;render();window.scrollTo(0,0)}
 });
+document.addEventListener("submit",e=>{
+ const f=e.target;
+ if(f.dataset&&f.dataset.form==="qt"){
+  e.preventDefault();
+  const inp=f.querySelector("input"),v=inp.value.trim();
+  if(!v)return;
+  const now=Date.now();
+  S.tasks.push({id:uid(),text:v,done:false,doneAt:0,mod:now,at:now});
+  commit();
+  const n=$("#qt");if(n)n.focus();
+ }
+});
 document.addEventListener("input",e=>{
  if(!draft)return;const t=e.target;
- if(t.dataset.f)draft[t.dataset.f]=t.value;
+ if(t.dataset.f){
+  draft[t.dataset.f]=t.value;
+  if(t.dataset.f==="category")document.querySelectorAll(".dlg .pill").forEach(b=>b.classList.toggle("on",b.dataset.c===t.value));
+ }
  else if(t.dataset.sf)draft.steps[+t.dataset.i][t.dataset.sf]=t.value;
 });
 document.addEventListener("change",e=>{
  const t=e.target;
  if(t.dataset.change==="guidesel"){guideGoal=t.value;const g=S.goals.find(x=>x.id===t.value);guideIdx=g?firstOpen(g):0;render()}
  if(t.dataset.change==="import"&&t.files&&t.files[0]){const r=new FileReader();r.onload=()=>importJSON(r.result);r.readAsText(t.files[0]);t.value=""}
+ if(t.dataset.change==="notif"){
+  if(t.checked){
+   if(!("Notification" in window)){toast("Notifications are not supported here");t.checked=false;return}
+   let req;try{req=Notification.requestPermission()}catch(err){req=null}
+   Promise.resolve(req).then(()=>{
+    if(Notification.permission==="granted"){ls.set(LS_NOTIF,"1");toast("Notifications enabled");maybeNotify()}
+    else{ls.set(LS_NOTIF,"0");toast("Permission not granted")}
+    if(tab==="settings")render();
+   });
+  }else{ls.set(LS_NOTIF,"0");toast("Notifications off");if(tab==="settings")render()}
+ }
 });
-function exportJSON(){
- const b=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
- const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="builder-quest-"+dstr()+".json";
- document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
-}
+function exportJSON(){download("builder-quest-"+dstr()+".json",JSON.stringify(S,null,2),"application/json")}
 function importJSON(txt){
  try{const o=JSON.parse(txt);if(!Array.isArray(o.goals))throw 0;S=normalize(o);S.epoch=Date.now();commit();toast("Backup imported")}
  catch(e){toast("Invalid backup file")}
@@ -547,12 +762,20 @@ function setupPWA(){
 }
 
 /* ---------- Init ---------- */
+let curDay=dstr();
 setupPWA();
-render();
+if(pruneTasks())commit();else render();
 startSync();
+maybeNotify();
 window.addEventListener("online",()=>{toast("Back online");startSync()});
 window.addEventListener("offline",()=>{refreshNet();toast("Offline: changes save on this device")});
-document.addEventListener("visibilitychange",()=>{if(document.hidden&&dirty&&ref){clearTimeout(syncTimer);push()}});
+document.addEventListener("visibilitychange",()=>{
+ if(document.hidden){if(dirty&&ref){clearTimeout(syncTimer);push()}}
+ else{
+  if(dstr()!==curDay){curDay=dstr();if(pruneTasks())commit();else render()}
+  maybeNotify();
+ }
+});
 setInterval(()=>{if(navigator.onLine&&syncState==="error"&&ls.get(LS_SYNC))startSync()},30000);
 </script>
 </body>
