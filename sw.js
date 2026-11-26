@@ -1,4 +1,4 @@
-const CACHE = "builder-quest-v1";
+const CACHE = "builder-quest-v2";
 const CORE = ["./", "./index.html"];
 
 self.addEventListener("install", e => {
