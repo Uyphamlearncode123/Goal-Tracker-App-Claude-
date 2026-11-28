@@ -73,6 +73,10 @@ main{padding:12px 14px 96px}
 .st{display:flex;gap:10px;align-items:center;padding:6px 0;color:var(--txt);font-size:15px;margin:0;border-top:1px solid #172340}
 .st.dn span{color:var(--mut);text-decoration:line-through}
 .xp{font-style:normal;margin-left:auto;font-size:12px;color:var(--acc);flex:none}
+.qlab{display:flex;gap:10px;align-items:center;flex:1;min-width:0;margin:0;color:var(--txt);font-size:15px;cursor:pointer}
+.qlab span{overflow-wrap:anywhere}
+.xdel{flex:none;width:30px;height:30px;padding:0;border-radius:8px;background:transparent;border-color:transparent;color:var(--mut);font-size:20px;line-height:1}
+.xdel:hover{color:var(--bad);border-color:#4b2230}
 .wk{display:flex;gap:8px;align-items:flex-end;height:120px;margin-top:8px}
 .wk>div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%}
 .wk b{width:100%;border-radius:6px 6px 2px 2px;background:var(--acc);min-height:3px;opacity:.85}
@@ -106,7 +110,9 @@ main{padding:12px 14px 96px}
 .pill{border-radius:99px;padding:5px 12px;font-size:13px}
 .pill.on{background:var(--acc);color:#04202e;border-color:var(--acc);font-weight:600}
 .pill small{opacity:.7;margin-left:2px}
-.pill.add{border-style:dashed;color:var(--mut);font-weight:600}
+.pill.add{border-style:dashed;color:var(--acc);background:transparent}
+.catbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:-4px 0 12px}
+.catbar button{padding:5px 12px;font-size:13px}
 /* alerts banner */
 .alerts{background:#241c0a;border:1px solid var(--warn);border-radius:14px;padding:12px 14px;margin-bottom:12px}
 .alerts.bad{border-color:var(--bad);background:#2a1216}
@@ -120,10 +126,6 @@ main{padding:12px 14px 96px}
 .qf{display:flex;gap:8px;margin-bottom:6px}
 .qf input{flex:1;min-width:0}
 .tg{display:flex;gap:10px;align-items:center;color:var(--txt);font-size:15px;margin-bottom:6px;cursor:pointer}
-.qt-row{display:flex;align-items:center;gap:2px;border-top:1px solid #172340}
-.qt-row .st{flex:1;min-width:0;border-top:0;margin:0}
-.qdel{flex:none;background:transparent;border:0;padding:2px 8px;color:var(--mut);font-size:17px;line-height:1;border-radius:8px}
-.qdel:hover{color:var(--bad);border-color:transparent}
 </style>
 </head>
 <body>
@@ -149,7 +151,7 @@ const FIREBASE_CONFIG = { apiKey:"", authDomain:"", projectId:"", storageBucket:
 
 const LS_KEY="bq_state_v1", LS_BAK="bq_backup_v1", LS_SYNC="bq_synccode_v1", LS_CFG="bq_fbcfg_v1";
 const LS_NOTIF="bq_notify_v1", LS_NDAY="bq_notified_day_v1";   /* per-device notification settings (not synced) */
-const CATS=["Electrical Eng","School","Fitness","Business","Personal"];
+const CATS=["Electrical Eng","School","Fitness","Business","Personal"];   /* built-in categories */
 const DEFAULT_CAT="Electrical Eng";
 const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 const $=(s,el=document)=>el.querySelector(s);
@@ -165,6 +167,7 @@ function canon(v){
  return JSON.stringify(v);
 }
 function weekKey(d=new Date()){const x=new Date(d);x.setDate(x.getDate()-((x.getDay()+6)%7));return dstr(x)}
+const isDefaultCat=n=>CATS.some(c=>c.toLowerCase()===String(n).toLowerCase());
 
 /* ---------- Starter template ---------- */
 function template(fixed){
@@ -180,17 +183,18 @@ function template(fixed){
 }
 
 /* ---------- State ---------- */
-function defaultState(){return {v:2,epoch:0,goals:[template(true)],tasks:[],deleted:{},categories:[],catMod:{},xp:0,log:{},streak:{count:0,last:"",freezes:1,week:weekKey()},badges:{},lastCheckin:"",updatedAt:0}}
+function defaultState(){return {v:2,epoch:0,goals:[template(true)],tasks:[],categories:[],deleted:{},xp:0,log:{},streak:{count:0,last:"",freezes:1,week:weekKey()},badges:{},lastCheckin:"",updatedAt:0}}
 function normalize(o){
  const s=Object.assign(defaultState(),o);
  s.streak=Object.assign(defaultState().streak,o.streak||{});
  s.log=o.log||{};s.badges=o.badges||{};s.deleted=o.deleted||{};s.epoch=o.epoch||0;
- /* custom (possibly empty) categories live in the synced state; defaults stay in CATS */
- s.catMod=o.catMod&&typeof o.catMod==="object"?Object.assign({},o.catMod):{};
- s.categories=(Array.isArray(o.categories)?o.categories:[]).map(c=>String(c==null?"":c).trim())
-  .filter((c,i,arr)=>!!c&&CATS.indexOf(c)<0&&arr.indexOf(c)===i&&!((s.deleted["cat:"+c]||0)>(s.catMod[c]||0)));
  s.tasks=Array.isArray(o.tasks)?o.tasks:[];
  s.tasks.forEach(t=>{t.mod=t.mod||0;t.at=t.at||0});
+ /* custom categories: [{name, mod}] (built-in ones are never stored) */
+ const seen={};
+ s.categories=(Array.isArray(o.categories)?o.categories:[]).map(c=>typeof c==="string"?{name:c,mod:0}:c)
+  .filter(c=>c&&typeof c.name==="string"&&c.name.trim()).map(c=>({name:c.name.trim().slice(0,30),mod:c.mod||0}))
+  .filter(c=>{const k=c.name.toLowerCase();if(isDefaultCat(c.name)||seen[k])return false;seen[k]=1;return true});
  s.goals.forEach(g=>{
   g.mod=g.mod||0;g.steps=g.steps||[];g.steps.forEach(x=>{x.mod=x.mod||0});
   if(!g.createdAt)g.createdAt=Date.now();
@@ -201,7 +205,7 @@ function normalize(o){
 }
 function load(){try{const s=JSON.parse(ls.get(LS_KEY));if(s&&Array.isArray(s.goals))return normalize(s)}catch(e){}return defaultState()}
 let S=load();
-let tab="dash",guideGoal=null,guideIdx=0,flash=false,armed=null,draft=null,isNew=false,catFilter="All";
+let tab="dash",guideGoal=null,guideIdx=0,flash=false,armed=null,draft=null,isNew=false,catFilter="All",catEdit=null;
 
 /* Every change is written to LocalStorage first, then queued for Firebase. */
 function commit(){
@@ -238,26 +242,21 @@ function mergeStates(a,b){
   if((del[id]||0)>g.mod)return;
   goals.push(g);
  });
- /* quick tasks: newest edit per id wins, cleared tasks stay cleared */
+ /* quick tasks: newest edit per id wins, deleted/cleared tasks stay deleted */
  const tmap={};
  [p,q].forEach(s=>(s.tasks||[]).forEach(t=>{const o=tmap[t.id];if(!o||t.mod>o.mod)tmap[t.id]=t}));
  const tasks=Object.keys(tmap).map(k=>clone(tmap[k])).filter(t=>!((del[t.id]||0)>t.mod)).sort((x,y)=>(x.at||0)-(y.at||0));
+ /* custom categories: newest entry per name wins, tombstones are stored as "cat:<lowercase name>" */
+ const cmap={};
+ [p,q].forEach(s=>(s.categories||[]).forEach(c=>{const k=c.name.toLowerCase(),o=cmap[k];if(!o||c.mod>o.mod)cmap[k]=c}));
+ const categories=Object.keys(cmap).map(k=>clone(cmap[k])).filter(c=>!((del["cat:"+c.name.toLowerCase()]||0)>c.mod));
  const log={};[a.log,b.log].forEach(o=>Object.keys(o||{}).forEach(k=>{log[k]=Math.max(log[k]||0,o[k])}));
  const xp=Object.keys(log).reduce((t,k)=>t+log[k],0);
  const sa=a.streak,sb=b.streak;
  let st=sb.last>sa.last?sb:sa;if(sa.last===sb.last)st=sb.count>sa.count?sb:sa;
  st=clone(st);if(sa.week===sb.week)st.freezes=Math.min(sa.freezes,sb.freezes);
  const badges={};[a.badges,b.badges].forEach(o=>Object.keys(o||{}).forEach(k=>{badges[k]=badges[k]?Math.min(badges[k],o[k]):o[k]}));
- /* custom categories: union of both sides, minus names deleted more recently than they were added */
- const catMod={};[a.catMod,b.catMod].forEach(o=>Object.keys(o||{}).forEach(k=>{catMod[k]=Math.max(catMod[k]||0,o[k]||0)}));
- const cats=[],cseen={};
- [a.categories,b.categories].forEach(list=>(list||[]).forEach(c=>{
-  c=String(c==null?"":c).trim();
-  if(!c||CATS.indexOf(c)>=0||cseen[c])return;
-  if((del["cat:"+c]||0)>(catMod[c]||0))return;
-  cseen[c]=1;cats.push(c);
- }));
- return normalize({v:2,epoch:a.epoch||0,goals,tasks,deleted:del,categories:cats,catMod,xp,log,streak:st,badges,
+ return normalize({v:2,epoch:a.epoch||0,goals,tasks,categories,deleted:del,xp,log,streak:st,badges,
   lastCheckin:a.lastCheckin>b.lastCheckin?a.lastCheckin:b.lastCheckin,updatedAt:Math.max(a.updatedAt,b.updatedAt)});
 }
 
@@ -315,6 +314,51 @@ function pruneTasks(){   /* completed tasks from earlier days disappear automati
   return true;
  });
  return ch;
+}
+
+/* ---------- Categories ---------- */
+function allCats(){   /* built-ins + saved custom ones (even with 0 goals) + any category still used by a goal */
+ const out=CATS.slice(),seen={};out.forEach(c=>{seen[c.toLowerCase()]=1});
+ S.categories.forEach(c=>{const k=c.name.toLowerCase();if(!seen[k]){seen[k]=1;out.push(c.name)}});
+ S.goals.forEach(g=>{const c=g.category;if(c){const k=c.toLowerCase();if(!seen[k]){seen[k]=1;out.push(c)}}});
+ return out;
+}
+function findCat(name){const k=String(name).toLowerCase();return allCats().find(c=>c.toLowerCase()===k)||null}
+function canonCat(name){   /* returns the stored spelling; saves a brand-new category into synced state */
+ name=String(name||"").trim().slice(0,30);if(!name)return "";
+ const ex=findCat(name);if(ex)return ex;
+ S.categories.push({name,mod:Date.now()});return name;
+}
+function addCategory(raw){
+ const name=String(raw||"").trim().slice(0,30);
+ if(!name){toast("Type a category name");return false}
+ const ex=findCat(name);
+ if(ex){catFilter=ex;catEdit=null;toast("“"+ex+"” already exists");render();return true}
+ S.categories.push({name,mod:Date.now()});
+ catFilter=name;catEdit=null;commit();toast("Category added");return true;
+}
+function renameCategory(old,raw){
+ const nu=String(raw||"").trim().slice(0,30);
+ if(!nu){toast("Type a category name");return false}
+ if(nu===old){catEdit=null;render();return true}
+ const sameKey=nu.toLowerCase()===old.toLowerCase();
+ const clash=allCats().find(c=>c.toLowerCase()===nu.toLowerCase()&&c.toLowerCase()!==old.toLowerCase());
+ if(clash){toast("“"+clash+"” already exists");return false}
+ const now=Date.now();
+ S.categories=S.categories.filter(c=>c.name.toLowerCase()!==old.toLowerCase());
+ if(!sameKey)S.deleted["cat:"+old.toLowerCase()]=now;
+ S.categories.push({name:nu,mod:now+1});
+ S.goals.forEach(g=>{if((g.category||"").toLowerCase()===old.toLowerCase()){g.category=nu;g.mod=now}});
+ catFilter=nu;catEdit=null;commit();toast("Category renamed");return true;
+}
+function deleteCategory(name){
+ if(isDefaultCat(name))return;
+ const now=Date.now();let moved=0;
+ S.goals.forEach(g=>{if((g.category||"").toLowerCase()===name.toLowerCase()){g.category=DEFAULT_CAT;g.mod=now;moved++}});
+ S.categories=S.categories.filter(c=>c.name.toLowerCase()!==name.toLowerCase());
+ S.deleted["cat:"+name.toLowerCase()]=now;
+ catFilter="All";catEdit=null;commit();
+ toast(moved?"Category deleted, "+moved+" goal"+(moved>1?"s":"")+" moved to "+DEFAULT_CAT:"Category deleted");
 }
 
 /* ---------- Deadlines and pace ---------- */
@@ -440,14 +484,7 @@ function dueTxt(g){
  return ' · <span class="'+cls+'">Due '+new Date(y,m-1,d).toLocaleDateString(undefined,{month:"short",day:"numeric"})+(p&&p.label?" ("+esc(p.label.toLowerCase())+")":"")+"</span>";
 }
 function firstOpen(g){const i=g.steps.findIndex(s=>!s.done);return i<0?0:i}
-function customCats(){return (S.categories||[]).slice()}
-function allCats(){
- const out=CATS.slice();
- const add=c=>{c=String(c==null?"":c).trim();if(c&&out.indexOf(c)<0)out.push(c)};
- (S.categories||[]).forEach(add);
- S.goals.forEach(g=>add(g.category));
- return out;
-}
+function catOptions(){return allCats()}
 
 /* ---------- Network / sync status ---------- */
 let syncState="idle",syncMsg="";   /* idle | connecting | syncing | synced | error */
@@ -483,7 +520,7 @@ function tasksCard(){
  const done=ts.filter(t=>t.done).length;
  return '<div class="card"><h3>Today&#39;s Quick Tasks</h3>'+
   '<form data-form="qt" class="qf"><input id="qt" maxlength="120" placeholder="Add a one-off task (+15 XP when done)" autocomplete="off"><button class="pri" type="submit">Add</button></form>'+
-  (ts.length?ts.map(t=>'<div class="qt-row"><label class="st '+(t.done?"dn":"")+'"><input type="checkbox" '+(t.done?"checked":"")+' data-a="qtoggle" data-t="'+t.id+'"><span>'+esc(t.text)+'</span><em class="xp">+15 XP</em></label><button class="qdel" data-a="qdel" data-t="'+t.id+'" title="Delete task" aria-label="Delete task">×</button></div>').join(""):'<p class="mut sm" style="margin:6px 0 0">No tasks yet. Add something small you can finish today.</p>')+
+  (ts.length?ts.map(t=>'<div class="st '+(t.done?"dn":"")+'"><label class="qlab"><input type="checkbox" '+(t.done?"checked":"")+' data-a="qtoggle" data-t="'+t.id+'"><span>'+esc(t.text)+'</span></label><em class="xp">+15 XP</em><button class="xdel" data-a="qdel" data-t="'+t.id+'" title="Delete task" aria-label="Delete task">×</button></div>').join(""):'<p class="mut sm" style="margin:6px 0 0">No tasks yet. Add something small you can finish today.</p>')+
   (done?'<div class="acts"><button data-a="qclear">Clear completed ('+done+")</button></div>":"")+"</div>";
 }
 function dash(){
@@ -501,26 +538,34 @@ function dash(){
  '<div class="card"><h3>Up next</h3>'+(nx?'<b>'+esc(nx.g.steps[nx.i].text)+'</b><div class="mut sm">'+esc(nx.g.title)+'</div><div class="acts"><button class="pri" data-a="openguide" data-g="'+nx.g.id+'">Open guide</button></div>':'<p class="mut">Nothing pending. Add a goal or a new step to keep earning XP.</p>')+"</div>";
 }
 function catPills(){
- const counts={};S.goals.forEach(g=>{const c=g.category||DEFAULT_CAT;counts[c]=(counts[c]||0)+1});
- const names=allCats();
- if(catFilter!=="All"&&names.indexOf(catFilter)<0)catFilter="All";
- return '<div class="pills">'+["All"].concat(names).map(c=>'<button class="pill '+(c===catFilter?"on":"")+'" data-a="catf" data-c="'+esc(c)+'">'+esc(c)+" <small>"+(c==="All"?S.goals.length:(counts[c]||0))+"</small></button>").join("")+
-  '<button class="pill add" data-a="catnew">＋ Category</button></div>';
+ const cats=allCats(),counts={};
+ S.goals.forEach(g=>{const k=(g.category||DEFAULT_CAT).toLowerCase();counts[k]=(counts[k]||0)+1});
+ if(catFilter!=="All"&&cats.indexOf(catFilter)<0)catFilter="All";
+ let h='<div class="pills">'+["All"].concat(cats).map(c=>'<button class="pill '+(c===catFilter?"on":"")+'" data-a="catf" data-c="'+esc(c)+'">'+esc(c)+" <small>"+(c==="All"?S.goals.length:(counts[c.toLowerCase()]||0))+"</small></button>").join("")+
+  '<button class="pill add" data-a="catadd">＋ Category</button></div>';
+ if(catFilter!=="All"&&!isDefaultCat(catFilter)){
+  h+='<div class="catbar"><span class="mut sm">Manage “'+esc(catFilter)+'”:</span><button data-a="catren">Rename</button><button class="danger" data-a="catdel">'+(armed==="cat:"+catFilter?"Tap again to delete":"Delete category")+'</button></div>';
+ }
+ if(catEdit){
+  const r=catEdit.mode==="rename";
+  h+='<form data-form="cat" class="qf card" style="padding:10px;margin-bottom:12px"><input id="catname" maxlength="30" value="'+esc(r?catEdit.name:"")+'" placeholder="Category name" autocomplete="off"><button class="pri" type="submit">'+(r?"Rename":"Add")+'</button><button type="button" class="ghost" data-a="catcancel">Cancel</button></form>';
+ }
+ return h;
 }
 function goals(){
  const pills=catPills();
- const list=S.goals.filter(g=>catFilter==="All"||(g.category||DEFAULT_CAT)===catFilter);
+ const list=S.goals.filter(g=>catFilter==="All"||(g.category||DEFAULT_CAT).toLowerCase()===catFilter.toLowerCase());
  return pills+'<div class="acts" style="margin:0 0 12px"><button class="pri" data-a="newgoal">＋ New goal</button></div>'+
  (list.length?list.map(g=>{
   const d=g.steps.filter(x=>x.done).length,n=g.steps.length,p=n?Math.round(d/n*100):0;
   return '<div class="card"><b>'+esc(g.title)+"</b>"+(g.completed?' <span class="tag">Complete</span>':"")+
-   '<div class="mut sm">'+esc(g.category||DEFAULT_CAT)+dueTxt(g)+"</div>"+
+   '<div class="mut sm">'+esc(g.category||"General")+dueTxt(g)+"</div>"+
    '<div class="bar" style="margin-top:8px"><i style="width:'+p+'%"></i></div><div class="mut sm">'+d+"/"+n+" steps · "+p+"%</div>"+
    '<div class="steps">'+g.steps.map(s=>'<label class="st '+(s.done?"dn":"")+'"><input type="checkbox" '+(s.done?"checked":"")+' data-a="toggle" data-g="'+g.id+'" data-s="'+s.id+'"><span>'+esc(s.text)+"</span></label>").join("")+"</div>"+
    '<div class="acts"><button data-a="openguide" data-g="'+g.id+'">Guide</button><button data-a="editgoal" data-g="'+g.id+'">Edit</button>'+
    (g.deadline?'<button data-a="ics" data-g="'+g.id+'">📅 Add Deadline to Calendar</button>':"")+
    '<button class="danger" data-a="delgoal" data-g="'+g.id+'">'+(armed===g.id?"Tap again to delete":"Delete")+"</button></div></div>";
- }).join(""):'<div class="card mut">'+(S.goals.length?"No goals in this area yet.":"No goals yet. Create one, or add the starter template in Settings.")+"</div>");
+ }).join(""):'<div class="card mut">'+(S.goals.length?"No goals in this area yet. Tap “＋ New goal” to add one here.":"No goals yet. Create one, or add the starter template in Settings.")+"</div>");
 }
 function guide(){
  if(!S.goals.length)return '<div class="card mut">No goals yet. Create one in Goals first.</div>';
@@ -529,7 +574,7 @@ function guide(){
  if(!g.steps.length)return '<div class="card">'+sel+'<p class="mut">This goal has no steps yet. Add some with Edit.</p></div>';
  guideIdx=Math.min(Math.max(guideIdx,0),g.steps.length-1);
  const s=g.steps[guideIdx];
- return '<div class="card">'+sel+'<div class="mut sm" style="margin:-4px 0 8px">'+esc(g.category||DEFAULT_CAT)+dueTxt(g)+"</div>"+(g.notes?'<div class="note">'+md(g.notes)+"</div>":"")+
+ return '<div class="card">'+sel+'<div class="mut sm" style="margin:-4px 0 8px">'+esc(g.category||"General")+dueTxt(g)+"</div>"+(g.notes?'<div class="note">'+md(g.notes)+"</div>":"")+
   '<div class="dots">'+g.steps.map((x,i)=>'<button class="'+(x.done?"ok ":"")+(i===guideIdx?"cur":"")+'" data-a="gstep" data-i="'+i+'">'+(i+1)+"</button>").join("")+"</div>"+
   '<h3>Step '+(guideIdx+1)+" of "+g.steps.length+": "+esc(s.text)+"</h3>"+
   (s.note?'<div class="note">'+md(s.note)+"</div>":'<p class="mut sm">No notes for this step.</p>')+
@@ -584,64 +629,13 @@ function drawEditor(){
  $("#modal").innerHTML='<div class="ov"><div class="dlg"><h3>'+(isNew?"New goal":"Edit goal")+"</h3>"+
  '<label>Title<input data-f="title" value="'+esc(draft.title)+'"></label>'+
  '<div class="row"><label>Category (pick below or type your own)<input id="catin" data-f="category" maxlength="30" value="'+esc(draft.category)+'"></label><label>Target deadline (optional)<input type="date" data-f="deadline" value="'+esc(draft.deadline)+'"></label></div>'+
- '<div class="pills" style="margin-top:-4px">'+allCats().map(c=>'<button type="button" class="pill '+(draft.category===c?"on":"")+'" data-a="e-cat" data-c="'+esc(c)+'">'+esc(c)+"</button>").join("")+"</div>"+
+ '<div class="pills" style="margin-top:-4px">'+catOptions().map(c=>'<button type="button" class="pill '+(draft.category===c?"on":"")+'" data-a="e-cat" data-c="'+esc(c)+'">'+esc(c)+"</button>").join("")+"</div>"+
  '<div class="acts" style="margin:-2px 0 10px"><button type="button" class="ghost sm" data-a="e-nodate">Clear deadline</button></div>'+
  '<label>Goal notes (markdown)<textarea data-f="notes" rows="3">'+esc(draft.notes)+"</textarea></label><h4>Steps</h4>"+
  draft.steps.map((s,i)=>'<div class="srow"><div class="sn">'+(i+1)+'</div><div class="sf"><input data-sf="text" data-i="'+i+'" value="'+esc(s.text)+'" placeholder="Step title"><textarea data-sf="note" data-i="'+i+'" rows="3" placeholder="How-to notes (markdown: - bullets, **bold**, ``` code fences)">'+esc(s.note)+'</textarea></div><div class="sb"><button data-a="e-up" data-i="'+i+'">↑</button><button data-a="e-dn" data-i="'+i+'">↓</button><button data-a="e-rm" data-i="'+i+'">✕</button></div></div>').join("")+
  '<button class="ghost" data-a="e-add">＋ Add step</button><div class="acts"><button class="ghost" data-a="e-cancel">Cancel</button><button class="pri" data-a="e-save">Save</button></div></div></div>';
 }
 function closeEditor(){draft=null;$("#modal").innerHTML=""}
-
-/* ---------- Category manager (custom categories, empty ones included) ---------- */
-function drawCats(){
- const list=customCats();
- $("#modal").innerHTML='<div class="ov"><div class="dlg"><h3>Categories</h3>'+
-  '<p class="mut sm" style="margin-top:-4px">Custom categories are saved with your data and sync to every device, even with 0 goals. Built-in: '+CATS.map(esc).join(", ")+'.</p>'+
-  '<form data-form="catadd" class="qf"><input id="newcat" maxlength="30" placeholder="New category name" autocomplete="off"><button class="pri" type="submit">Add</button></form>'+
-  (list.length?list.map((c,i)=>'<div class="srow"><div class="sn">'+(i+1)+'</div><div class="sf"><input data-cati="'+i+'" maxlength="30" value="'+esc(c)+'"></div><div class="sb"><button data-a="catren" data-i="'+i+'">Save</button><button class="danger" data-a="catdel" data-i="'+i+'">Delete</button></div></div>').join(""):'<p class="mut sm">No custom categories yet. Add one above.</p>')+
-  (list.length?'<p class="mut sm" style="margin:0 0 4px">Deleting a category keeps its goals and moves them to '+esc(DEFAULT_CAT)+'.</p>':"")+
-  '<div class="acts"><button class="ghost" data-a="catclose">Done</button></div></div></div>';
-}
-function addCat(v){
- const n=String(v==null?"":v).trim().replace(/\s+/g," ");
- if(!n){toast("Type a category name first");return false}
- if(n.length>30){toast("Keep the name under 30 characters");return false}
- if(allCats().indexOf(n)>=0){toast("That category already exists");return false}
- const now=Date.now();
- S.categories=customCats().concat(n);
- S.catMod=S.catMod||{};S.catMod[n]=now;
- delete S.deleted["cat:"+n];
- catFilter=n;commit();toast("✅ Category added");
- return true;
-}
-function renameCat(i,v){
- const old=customCats()[i];if(old==null)return;
- const n=String(v==null?"":v).trim().replace(/\s+/g," ");
- if(!n){toast("The name cannot be empty");return}
- if(n.length>30){toast("Keep the name under 30 characters");return}
- if(n!==old&&allCats().indexOf(n)>=0){toast("That category already exists");return}
- if(n===old){toast("Nothing to rename");return}
- const now=Date.now();
- S.categories=customCats().filter(c=>c!==old).concat(n);
- S.catMod=S.catMod||{};S.catMod[n]=now;
- S.deleted["cat:"+old]=now;
- S.goals.forEach(g=>{if((g.category||"")===old){g.category=n;g.mod=now}});
- if(draft&&draft.category===old)draft.category=n;
- if(catFilter===old)catFilter=n;
- commit();toast("✅ Category renamed");
-}
-function deleteCat(i){
- const name=customCats()[i];if(name==null)return;
- const now=Date.now(),moved=S.goals.filter(g=>(g.category||"")===name);
- moved.forEach(g=>{g.category=DEFAULT_CAT;g.mod=now});
- S.categories=customCats().filter(c=>c!==name);
- S.catMod=S.catMod||{};
- S.deleted["cat:"+name]=now;
- if(draft&&draft.category===name)draft.category=DEFAULT_CAT;
- if(catFilter===name)catFilter="All";
- commit();
- toast(moved.length?"🗑️ Category deleted · moved "+moved.length+" goal"+(moved.length===1?"":"s")+" to "+DEFAULT_CAT:"🗑️ Category deleted");
-}
 
 /* ---------- Actions ---------- */
 function act(a,el){
@@ -654,20 +648,24 @@ function act(a,el){
    const now=Date.now();t.done=!t.done;t.mod=now;t.doneAt=t.done?now:0;
    addXP(t.done?15:-15);if(t.done)toast("✅ Task done +15 XP");
    commit();break}
+  case "qdel":{   /* delete one task; XP and streak are left untouched */
+   S.tasks=S.tasks.filter(x=>x.id!==d.t);
+   S.deleted[d.t]=Date.now();
+   commit();break}
   case "qclear":{
    const now=Date.now();
    S.tasks.filter(t=>t.done).forEach(t=>{S.deleted[t.id]=now});
    S.tasks=S.tasks.filter(t=>!t.done);commit();break}
-  case "qdel":{
-   const t=S.tasks.find(x=>x.id===d.t);if(!t)break;
-   S.deleted[t.id]=Date.now();              /* tombstone: other devices will not bring it back */
-   S.tasks=S.tasks.filter(x=>x.id!==t.id);  /* no addXP(-15): XP and streak stay exactly as they were */
-   commit();toast("🗑️ Task deleted");break}
-  case "catnew":drawCats();break;
-  case "catclose":$("#modal").innerHTML="";break;
-  case "catren":{const inp=document.querySelector('.dlg [data-cati="'+i+'"]');renameCat(i,inp?inp.value:"");drawCats();break}
-  case "catdel":deleteCat(i);drawCats();break;
-  case "catf":catFilter=d.c;render();break;
+  case "catf":catFilter=d.c;catEdit=null;armed=null;render();break;
+  case "catadd":catEdit={mode:"add"};render();{const n=$("#catname");if(n)n.focus()}break;
+  case "catren":if(catFilter!=="All"&&!isDefaultCat(catFilter)){catEdit={mode:"rename",name:catFilter};render();const n=$("#catname");if(n){n.focus();n.select()}}break;
+  case "catcancel":catEdit=null;render();break;
+  case "catdel":{
+   if(catFilter==="All"||isDefaultCat(catFilter))break;
+   const nm=catFilter,key="cat:"+nm;
+   if(armed===key){armed=null;deleteCategory(nm)}
+   else{armed=key;setTimeout(()=>{if(armed===key){armed=null;if(tab==="goals")render()}},3000);render()}
+   break}
   case "ics":{const g=S.goals.find(x=>x.id===d.g);if(g)dlICS(g);break}
   case "testnotif":
    if(!("Notification" in window)||Notification.permission!=="granted"){toast("Enable notifications first");break}
@@ -702,7 +700,7 @@ function act(a,el){
   case "e-save":{
    if(!draft.title.trim()){toast("Add a title first");break}
    draft.title=draft.title.trim();
-   draft.category=(draft.category||"").trim()||DEFAULT_CAT;
+   draft.category=canonCat(draft.category)||DEFAULT_CAT;   /* a newly typed category is saved to synced state */
    if(!draft.createdAt)draft.createdAt=Date.now();
    draft.steps=draft.steps.filter(s=>s.text.trim());
    const now=Date.now();draft.mod=now;draft.steps.forEach(s=>{s.mod=now});
@@ -721,24 +719,19 @@ function act(a,el){
   case "snap":{try{const b=JSON.parse(ls.get(LS_BAK));S=normalize(JSON.parse(b[i].d));S.epoch=Date.now();commit();toast("Snapshot restored")}catch(e){toast("Could not restore")}break}
   case "template":S.goals.push(template(false));commit();toast("Starter template added");break;
   case "reset":
-   if(armed==="reset"){S=defaultState();S.epoch=Date.now();armed=null;commit();toast("Data reset")}
+   if(armed==="reset"){S=defaultState();S.epoch=Date.now();armed=null;catFilter="All";catEdit=null;commit();toast("Data reset")}
    else{armed="reset";setTimeout(()=>{if(armed==="reset"){armed=null;if(tab==="settings")render()}},3000);render()}
    break;
  }
 }
 document.addEventListener("click",e=>{
  const el=e.target.closest("[data-a]");if(el){act(el.dataset.a,el);return}
- const tb=e.target.closest("[data-tab]");if(tb){tab=tb.dataset.tab;render();window.scrollTo(0,0)}
+ const tb=e.target.closest("[data-tab]");if(tb){tab=tb.dataset.tab;catEdit=null;render();window.scrollTo(0,0)}
 });
 document.addEventListener("submit",e=>{
  const f=e.target;
- if(f.dataset&&f.dataset.form==="catadd"){
-  e.preventDefault();
-  const ci=f.querySelector("input");
-  if(addCat(ci.value)){drawCats();const nn=$("#newcat");if(nn)nn.focus()}
-  return;
- }
- if(f.dataset&&f.dataset.form==="qt"){
+ if(!f.dataset)return;
+ if(f.dataset.form==="qt"){
   e.preventDefault();
   const inp=f.querySelector("input"),v=inp.value.trim();
   if(!v)return;
@@ -746,6 +739,10 @@ document.addEventListener("submit",e=>{
   S.tasks.push({id:uid(),text:v,done:false,doneAt:0,mod:now,at:now});
   commit();
   const n=$("#qt");if(n)n.focus();
+ }else if(f.dataset.form==="cat"){
+  e.preventDefault();
+  const v=f.querySelector("input").value;
+  if(catEdit&&catEdit.mode==="rename")renameCategory(catEdit.name,v);else addCategory(v);
  }
 });
 document.addEventListener("input",e=>{
