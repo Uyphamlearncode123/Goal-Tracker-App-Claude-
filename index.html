@@ -106,6 +106,7 @@ main{padding:12px 14px 96px}
 .pill{border-radius:99px;padding:5px 12px;font-size:13px}
 .pill.on{background:var(--acc);color:#04202e;border-color:var(--acc);font-weight:600}
 .pill small{opacity:.7;margin-left:2px}
+.pill.add{border-style:dashed;color:var(--mut);font-weight:600}
 /* alerts banner */
 .alerts{background:#241c0a;border:1px solid var(--warn);border-radius:14px;padding:12px 14px;margin-bottom:12px}
 .alerts.bad{border-color:var(--bad);background:#2a1216}
@@ -119,6 +120,10 @@ main{padding:12px 14px 96px}
 .qf{display:flex;gap:8px;margin-bottom:6px}
 .qf input{flex:1;min-width:0}
 .tg{display:flex;gap:10px;align-items:center;color:var(--txt);font-size:15px;margin-bottom:6px;cursor:pointer}
+.qt-row{display:flex;align-items:center;gap:2px;border-top:1px solid #172340}
+.qt-row .st{flex:1;min-width:0;border-top:0;margin:0}
+.qdel{flex:none;background:transparent;border:0;padding:2px 8px;color:var(--mut);font-size:17px;line-height:1;border-radius:8px}
+.qdel:hover{color:var(--bad);border-color:transparent}
 </style>
 </head>
 <body>
@@ -175,11 +180,15 @@ function template(fixed){
 }
 
 /* ---------- State ---------- */
-function defaultState(){return {v:2,epoch:0,goals:[template(true)],tasks:[],deleted:{},xp:0,log:{},streak:{count:0,last:"",freezes:1,week:weekKey()},badges:{},lastCheckin:"",updatedAt:0}}
+function defaultState(){return {v:2,epoch:0,goals:[template(true)],tasks:[],deleted:{},categories:[],catMod:{},xp:0,log:{},streak:{count:0,last:"",freezes:1,week:weekKey()},badges:{},lastCheckin:"",updatedAt:0}}
 function normalize(o){
  const s=Object.assign(defaultState(),o);
  s.streak=Object.assign(defaultState().streak,o.streak||{});
  s.log=o.log||{};s.badges=o.badges||{};s.deleted=o.deleted||{};s.epoch=o.epoch||0;
+ /* custom (possibly empty) categories live in the synced state; defaults stay in CATS */
+ s.catMod=o.catMod&&typeof o.catMod==="object"?Object.assign({},o.catMod):{};
+ s.categories=(Array.isArray(o.categories)?o.categories:[]).map(c=>String(c==null?"":c).trim())
+  .filter((c,i,arr)=>!!c&&CATS.indexOf(c)<0&&arr.indexOf(c)===i&&!((s.deleted["cat:"+c]||0)>(s.catMod[c]||0)));
  s.tasks=Array.isArray(o.tasks)?o.tasks:[];
  s.tasks.forEach(t=>{t.mod=t.mod||0;t.at=t.at||0});
  s.goals.forEach(g=>{
@@ -239,7 +248,16 @@ function mergeStates(a,b){
  let st=sb.last>sa.last?sb:sa;if(sa.last===sb.last)st=sb.count>sa.count?sb:sa;
  st=clone(st);if(sa.week===sb.week)st.freezes=Math.min(sa.freezes,sb.freezes);
  const badges={};[a.badges,b.badges].forEach(o=>Object.keys(o||{}).forEach(k=>{badges[k]=badges[k]?Math.min(badges[k],o[k]):o[k]}));
- return normalize({v:2,epoch:a.epoch||0,goals,tasks,deleted:del,xp,log,streak:st,badges,
+ /* custom categories: union of both sides, minus names deleted more recently than they were added */
+ const catMod={};[a.catMod,b.catMod].forEach(o=>Object.keys(o||{}).forEach(k=>{catMod[k]=Math.max(catMod[k]||0,o[k]||0)}));
+ const cats=[],cseen={};
+ [a.categories,b.categories].forEach(list=>(list||[]).forEach(c=>{
+  c=String(c==null?"":c).trim();
+  if(!c||CATS.indexOf(c)>=0||cseen[c])return;
+  if((del["cat:"+c]||0)>(catMod[c]||0))return;
+  cseen[c]=1;cats.push(c);
+ }));
+ return normalize({v:2,epoch:a.epoch||0,goals,tasks,deleted:del,categories:cats,catMod,xp,log,streak:st,badges,
   lastCheckin:a.lastCheckin>b.lastCheckin?a.lastCheckin:b.lastCheckin,updatedAt:Math.max(a.updatedAt,b.updatedAt)});
 }
 
@@ -422,7 +440,14 @@ function dueTxt(g){
  return ' · <span class="'+cls+'">Due '+new Date(y,m-1,d).toLocaleDateString(undefined,{month:"short",day:"numeric"})+(p&&p.label?" ("+esc(p.label.toLowerCase())+")":"")+"</span>";
 }
 function firstOpen(g){const i=g.steps.findIndex(s=>!s.done);return i<0?0:i}
-function catOptions(){const set=CATS.slice();S.goals.forEach(g=>{const c=g.category;if(c&&set.indexOf(c)<0)set.push(c)});return set}
+function customCats(){return (S.categories||[]).slice()}
+function allCats(){
+ const out=CATS.slice();
+ const add=c=>{c=String(c==null?"":c).trim();if(c&&out.indexOf(c)<0)out.push(c)};
+ (S.categories||[]).forEach(add);
+ S.goals.forEach(g=>add(g.category));
+ return out;
+}
 
 /* ---------- Network / sync status ---------- */
 let syncState="idle",syncMsg="";   /* idle | connecting | syncing | synced | error */
@@ -458,7 +483,7 @@ function tasksCard(){
  const done=ts.filter(t=>t.done).length;
  return '<div class="card"><h3>Today&#39;s Quick Tasks</h3>'+
   '<form data-form="qt" class="qf"><input id="qt" maxlength="120" placeholder="Add a one-off task (+15 XP when done)" autocomplete="off"><button class="pri" type="submit">Add</button></form>'+
-  (ts.length?ts.map(t=>'<label class="st '+(t.done?"dn":"")+'"><input type="checkbox" '+(t.done?"checked":"")+' data-a="qtoggle" data-t="'+t.id+'"><span>'+esc(t.text)+'</span><em class="xp">+15 XP</em></label>').join(""):'<p class="mut sm" style="margin:6px 0 0">No tasks yet. Add something small you can finish today.</p>')+
+  (ts.length?ts.map(t=>'<div class="qt-row"><label class="st '+(t.done?"dn":"")+'"><input type="checkbox" '+(t.done?"checked":"")+' data-a="qtoggle" data-t="'+t.id+'"><span>'+esc(t.text)+'</span><em class="xp">+15 XP</em></label><button class="qdel" data-a="qdel" data-t="'+t.id+'" title="Delete task" aria-label="Delete task">×</button></div>').join(""):'<p class="mut sm" style="margin:6px 0 0">No tasks yet. Add something small you can finish today.</p>')+
   (done?'<div class="acts"><button data-a="qclear">Clear completed ('+done+")</button></div>":"")+"</div>";
 }
 function dash(){
@@ -476,19 +501,20 @@ function dash(){
  '<div class="card"><h3>Up next</h3>'+(nx?'<b>'+esc(nx.g.steps[nx.i].text)+'</b><div class="mut sm">'+esc(nx.g.title)+'</div><div class="acts"><button class="pri" data-a="openguide" data-g="'+nx.g.id+'">Open guide</button></div>':'<p class="mut">Nothing pending. Add a goal or a new step to keep earning XP.</p>')+"</div>";
 }
 function catPills(){
- const counts={};S.goals.forEach(g=>{const c=g.category||"General";counts[c]=(counts[c]||0)+1});
- const names=Object.keys(counts).sort((a,b)=>{const ia=CATS.indexOf(a),ib=CATS.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b)});
- if(catFilter!=="All"&&!counts[catFilter])catFilter="All";
- return '<div class="pills">'+["All"].concat(names).map(c=>'<button class="pill '+(c===catFilter?"on":"")+'" data-a="catf" data-c="'+esc(c)+'">'+esc(c)+" <small>"+(c==="All"?S.goals.length:counts[c])+"</small></button>").join("")+"</div>";
+ const counts={};S.goals.forEach(g=>{const c=g.category||DEFAULT_CAT;counts[c]=(counts[c]||0)+1});
+ const names=allCats();
+ if(catFilter!=="All"&&names.indexOf(catFilter)<0)catFilter="All";
+ return '<div class="pills">'+["All"].concat(names).map(c=>'<button class="pill '+(c===catFilter?"on":"")+'" data-a="catf" data-c="'+esc(c)+'">'+esc(c)+" <small>"+(c==="All"?S.goals.length:(counts[c]||0))+"</small></button>").join("")+
+  '<button class="pill add" data-a="catnew">＋ Category</button></div>';
 }
 function goals(){
  const pills=catPills();
- const list=S.goals.filter(g=>catFilter==="All"||(g.category||"General")===catFilter);
+ const list=S.goals.filter(g=>catFilter==="All"||(g.category||DEFAULT_CAT)===catFilter);
  return pills+'<div class="acts" style="margin:0 0 12px"><button class="pri" data-a="newgoal">＋ New goal</button></div>'+
  (list.length?list.map(g=>{
   const d=g.steps.filter(x=>x.done).length,n=g.steps.length,p=n?Math.round(d/n*100):0;
   return '<div class="card"><b>'+esc(g.title)+"</b>"+(g.completed?' <span class="tag">Complete</span>':"")+
-   '<div class="mut sm">'+esc(g.category||"General")+dueTxt(g)+"</div>"+
+   '<div class="mut sm">'+esc(g.category||DEFAULT_CAT)+dueTxt(g)+"</div>"+
    '<div class="bar" style="margin-top:8px"><i style="width:'+p+'%"></i></div><div class="mut sm">'+d+"/"+n+" steps · "+p+"%</div>"+
    '<div class="steps">'+g.steps.map(s=>'<label class="st '+(s.done?"dn":"")+'"><input type="checkbox" '+(s.done?"checked":"")+' data-a="toggle" data-g="'+g.id+'" data-s="'+s.id+'"><span>'+esc(s.text)+"</span></label>").join("")+"</div>"+
    '<div class="acts"><button data-a="openguide" data-g="'+g.id+'">Guide</button><button data-a="editgoal" data-g="'+g.id+'">Edit</button>'+
@@ -503,7 +529,7 @@ function guide(){
  if(!g.steps.length)return '<div class="card">'+sel+'<p class="mut">This goal has no steps yet. Add some with Edit.</p></div>';
  guideIdx=Math.min(Math.max(guideIdx,0),g.steps.length-1);
  const s=g.steps[guideIdx];
- return '<div class="card">'+sel+'<div class="mut sm" style="margin:-4px 0 8px">'+esc(g.category||"General")+dueTxt(g)+"</div>"+(g.notes?'<div class="note">'+md(g.notes)+"</div>":"")+
+ return '<div class="card">'+sel+'<div class="mut sm" style="margin:-4px 0 8px">'+esc(g.category||DEFAULT_CAT)+dueTxt(g)+"</div>"+(g.notes?'<div class="note">'+md(g.notes)+"</div>":"")+
   '<div class="dots">'+g.steps.map((x,i)=>'<button class="'+(x.done?"ok ":"")+(i===guideIdx?"cur":"")+'" data-a="gstep" data-i="'+i+'">'+(i+1)+"</button>").join("")+"</div>"+
   '<h3>Step '+(guideIdx+1)+" of "+g.steps.length+": "+esc(s.text)+"</h3>"+
   (s.note?'<div class="note">'+md(s.note)+"</div>":'<p class="mut sm">No notes for this step.</p>')+
@@ -558,13 +584,64 @@ function drawEditor(){
  $("#modal").innerHTML='<div class="ov"><div class="dlg"><h3>'+(isNew?"New goal":"Edit goal")+"</h3>"+
  '<label>Title<input data-f="title" value="'+esc(draft.title)+'"></label>'+
  '<div class="row"><label>Category (pick below or type your own)<input id="catin" data-f="category" maxlength="30" value="'+esc(draft.category)+'"></label><label>Target deadline (optional)<input type="date" data-f="deadline" value="'+esc(draft.deadline)+'"></label></div>'+
- '<div class="pills" style="margin-top:-4px">'+catOptions().map(c=>'<button type="button" class="pill '+(draft.category===c?"on":"")+'" data-a="e-cat" data-c="'+esc(c)+'">'+esc(c)+"</button>").join("")+"</div>"+
+ '<div class="pills" style="margin-top:-4px">'+allCats().map(c=>'<button type="button" class="pill '+(draft.category===c?"on":"")+'" data-a="e-cat" data-c="'+esc(c)+'">'+esc(c)+"</button>").join("")+"</div>"+
  '<div class="acts" style="margin:-2px 0 10px"><button type="button" class="ghost sm" data-a="e-nodate">Clear deadline</button></div>'+
  '<label>Goal notes (markdown)<textarea data-f="notes" rows="3">'+esc(draft.notes)+"</textarea></label><h4>Steps</h4>"+
  draft.steps.map((s,i)=>'<div class="srow"><div class="sn">'+(i+1)+'</div><div class="sf"><input data-sf="text" data-i="'+i+'" value="'+esc(s.text)+'" placeholder="Step title"><textarea data-sf="note" data-i="'+i+'" rows="3" placeholder="How-to notes (markdown: - bullets, **bold**, ``` code fences)">'+esc(s.note)+'</textarea></div><div class="sb"><button data-a="e-up" data-i="'+i+'">↑</button><button data-a="e-dn" data-i="'+i+'">↓</button><button data-a="e-rm" data-i="'+i+'">✕</button></div></div>').join("")+
  '<button class="ghost" data-a="e-add">＋ Add step</button><div class="acts"><button class="ghost" data-a="e-cancel">Cancel</button><button class="pri" data-a="e-save">Save</button></div></div></div>';
 }
 function closeEditor(){draft=null;$("#modal").innerHTML=""}
+
+/* ---------- Category manager (custom categories, empty ones included) ---------- */
+function drawCats(){
+ const list=customCats();
+ $("#modal").innerHTML='<div class="ov"><div class="dlg"><h3>Categories</h3>'+
+  '<p class="mut sm" style="margin-top:-4px">Custom categories are saved with your data and sync to every device, even with 0 goals. Built-in: '+CATS.map(esc).join(", ")+'.</p>'+
+  '<form data-form="catadd" class="qf"><input id="newcat" maxlength="30" placeholder="New category name" autocomplete="off"><button class="pri" type="submit">Add</button></form>'+
+  (list.length?list.map((c,i)=>'<div class="srow"><div class="sn">'+(i+1)+'</div><div class="sf"><input data-cati="'+i+'" maxlength="30" value="'+esc(c)+'"></div><div class="sb"><button data-a="catren" data-i="'+i+'">Save</button><button class="danger" data-a="catdel" data-i="'+i+'">Delete</button></div></div>').join(""):'<p class="mut sm">No custom categories yet. Add one above.</p>')+
+  (list.length?'<p class="mut sm" style="margin:0 0 4px">Deleting a category keeps its goals and moves them to '+esc(DEFAULT_CAT)+'.</p>':"")+
+  '<div class="acts"><button class="ghost" data-a="catclose">Done</button></div></div></div>';
+}
+function addCat(v){
+ const n=String(v==null?"":v).trim().replace(/\s+/g," ");
+ if(!n){toast("Type a category name first");return false}
+ if(n.length>30){toast("Keep the name under 30 characters");return false}
+ if(allCats().indexOf(n)>=0){toast("That category already exists");return false}
+ const now=Date.now();
+ S.categories=customCats().concat(n);
+ S.catMod=S.catMod||{};S.catMod[n]=now;
+ delete S.deleted["cat:"+n];
+ catFilter=n;commit();toast("✅ Category added");
+ return true;
+}
+function renameCat(i,v){
+ const old=customCats()[i];if(old==null)return;
+ const n=String(v==null?"":v).trim().replace(/\s+/g," ");
+ if(!n){toast("The name cannot be empty");return}
+ if(n.length>30){toast("Keep the name under 30 characters");return}
+ if(n!==old&&allCats().indexOf(n)>=0){toast("That category already exists");return}
+ if(n===old){toast("Nothing to rename");return}
+ const now=Date.now();
+ S.categories=customCats().filter(c=>c!==old).concat(n);
+ S.catMod=S.catMod||{};S.catMod[n]=now;
+ S.deleted["cat:"+old]=now;
+ S.goals.forEach(g=>{if((g.category||"")===old){g.category=n;g.mod=now}});
+ if(draft&&draft.category===old)draft.category=n;
+ if(catFilter===old)catFilter=n;
+ commit();toast("✅ Category renamed");
+}
+function deleteCat(i){
+ const name=customCats()[i];if(name==null)return;
+ const now=Date.now(),moved=S.goals.filter(g=>(g.category||"")===name);
+ moved.forEach(g=>{g.category=DEFAULT_CAT;g.mod=now});
+ S.categories=customCats().filter(c=>c!==name);
+ S.catMod=S.catMod||{};
+ S.deleted["cat:"+name]=now;
+ if(draft&&draft.category===name)draft.category=DEFAULT_CAT;
+ if(catFilter===name)catFilter="All";
+ commit();
+ toast(moved.length?"🗑️ Category deleted · moved "+moved.length+" goal"+(moved.length===1?"":"s")+" to "+DEFAULT_CAT:"🗑️ Category deleted");
+}
 
 /* ---------- Actions ---------- */
 function act(a,el){
@@ -581,6 +658,15 @@ function act(a,el){
    const now=Date.now();
    S.tasks.filter(t=>t.done).forEach(t=>{S.deleted[t.id]=now});
    S.tasks=S.tasks.filter(t=>!t.done);commit();break}
+  case "qdel":{
+   const t=S.tasks.find(x=>x.id===d.t);if(!t)break;
+   S.deleted[t.id]=Date.now();              /* tombstone: other devices will not bring it back */
+   S.tasks=S.tasks.filter(x=>x.id!==t.id);  /* no addXP(-15): XP and streak stay exactly as they were */
+   commit();toast("🗑️ Task deleted");break}
+  case "catnew":drawCats();break;
+  case "catclose":$("#modal").innerHTML="";break;
+  case "catren":{const inp=document.querySelector('.dlg [data-cati="'+i+'"]');renameCat(i,inp?inp.value:"");drawCats();break}
+  case "catdel":deleteCat(i);drawCats();break;
   case "catf":catFilter=d.c;render();break;
   case "ics":{const g=S.goals.find(x=>x.id===d.g);if(g)dlICS(g);break}
   case "testnotif":
@@ -646,6 +732,12 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("submit",e=>{
  const f=e.target;
+ if(f.dataset&&f.dataset.form==="catadd"){
+  e.preventDefault();
+  const ci=f.querySelector("input");
+  if(addCat(ci.value)){drawCats();const nn=$("#newcat");if(nn)nn.focus()}
+  return;
+ }
  if(f.dataset&&f.dataset.form==="qt"){
   e.preventDefault();
   const inp=f.querySelector("input"),v=inp.value.trim();
